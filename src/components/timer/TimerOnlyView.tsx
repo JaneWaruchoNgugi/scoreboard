@@ -186,26 +186,26 @@ export function TimerOnlyView({ onBack }: Props) {
             </div>
 
             {/* Big ring */}
-            <div style={{ position: "relative", zIndex: 5, width: 480, height: 480, maxWidth: "min(480px,78vw)", maxHeight: "min(480px,78vw)" }}>
-                <svg width="100%" height="100%" viewBox="0 0 480 480" style={{ transform: "rotate(-90deg)", filter: `drop-shadow(0 0 40px ${glowColor})` }}>
-                    <circle cx="240" cy="240" r={R} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="14" />
-                    <circle cx="240" cy="240" r={R} fill="none" stroke={ringColor} strokeWidth="14" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - progress)} strokeLinecap="round" style={{ transition: "stroke-dashoffset 0.15s linear, stroke 0.4s ease" }} />
-                </svg>
-                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>
-                    {isEnd ? (
-                        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(60px,14vw,110px)", letterSpacing: "0.08em", color: "rgba(255,255,255,0.3)", lineHeight: 1 }}>TIME</div>
-                    ) : (
-                        <>
-                            <div className={isWarning ? "timer-warning" : ""} style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(90px,20vw,160px)", letterSpacing: "-0.03em", color: timerColor, lineHeight: 1, textShadow: isWarning ? "0 0 60px rgba(255,64,96,0.7)" : "0 0 40px rgba(0,229,160,0.4)" }}>
-                                {secs}
-                            </div>
-                            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "clamp(12px,2vw,18px)", letterSpacing: "0.3em", color: isWarning ? "rgba(255,64,96,0.6)" : "rgba(255,255,255,0.35)" }}>
-                                SECONDS
-                            </div>
-                        </>
-                    )}
-                </div>
-            </div>
+            {/*<div style={{ position: "relative", zIndex: 5, width: 480, height: 480, maxWidth: "min(480px,78vw)", maxHeight: "min(480px,78vw)" }}>*/}
+            {/*    <svg width="100%" height="100%" viewBox="0 0 480 480" style={{ transform: "rotate(-90deg)", filter: `drop-shadow(0 0 40px ${glowColor})` }}>*/}
+            {/*        <circle cx="240" cy="240" r={R} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="14" />*/}
+            {/*        <circle cx="240" cy="240" r={R} fill="none" stroke={ringColor} strokeWidth="14" strokeDasharray={circumference} strokeDashoffset={circumference * (1 - progress)} strokeLinecap="round" style={{ transition: "stroke-dashoffset 0.15s linear, stroke 0.4s ease" }} />*/}
+            {/*    </svg>*/}
+            {/*    <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 }}>*/}
+            {/*        {isEnd ? (*/}
+            {/*            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(60px,14vw,110px)", letterSpacing: "0.08em", color: "rgba(255,255,255,0.3)", lineHeight: 1 }}>TIME</div>*/}
+            {/*        ) : (*/}
+            {/*            <>*/}
+            {/*                <div className={isWarning ? "timer-warning" : ""} style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(90px,20vw,160px)", letterSpacing: "-0.03em", color: timerColor, lineHeight: 1, textShadow: isWarning ? "0 0 60px rgba(255,64,96,0.7)" : "0 0 40px rgba(0,229,160,0.4)" }}>*/}
+            {/*                    {secs}*/}
+            {/*                </div>*/}
+            {/*                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: "clamp(12px,2vw,18px)", letterSpacing: "0.3em", color: isWarning ? "rgba(255,64,96,0.6)" : "rgba(255,255,255,0.35)" }}>*/}
+            {/*                    SECONDS*/}
+            {/*                </div>*/}
+            {/*            </>*/}
+            {/*        )}*/}
+            {/*    </div>*/}
+            {/*</div>*/}
 
             <div style={{ position: "relative", zIndex: 5, marginTop: 48, display: "flex", alignItems: "center", gap: 16, fontFamily: "'DM Mono', monospace", fontSize: 12, letterSpacing: "0.2em", color: "rgba(255,255,255,0.4)" }}>
                 {state.timerRunning && !isEnd && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "var(--green)", boxShadow: "0 0 12px var(--green)", animation: "pulse 1s infinite" }} />}
