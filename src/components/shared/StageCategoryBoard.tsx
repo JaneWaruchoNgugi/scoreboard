@@ -196,7 +196,7 @@ export function StageCategoryBoard({ state }: Props) {
                                             style={{
                                                 position: "relative",
                                                 background: cat.used
-                                                    ? "linear-gradient(145deg,#181818,#0f0f0f)"
+                                                    ? ts.fill
                                                     : ts.fill,
                                                 border: cat.used
                                                     ? "2px solid #2a2a2a"
@@ -217,8 +217,10 @@ export function StageCategoryBoard({ state }: Props) {
                                                 <div
                                                     style={{
                                                         position: "absolute", inset: 0,
-                                                        background: "linear-gradient(150deg,rgba(255,255,255,0.2) 0%,transparent 45%)",
-                                                        borderRadius: "inherit", pointerEvents: "none",
+                                                        background: "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.15) 50%, transparent 80%)",
+                                                        borderRadius: "inherit",
+                                                        pointerEvents: "none",
+                                                        mixBlendMode: "overlay", // This helps blend with the background colors
                                                     }}
                                                 />
                                             )}
@@ -226,10 +228,12 @@ export function StageCategoryBoard({ state }: Props) {
                                             {!cat.used && (
                                                 <div
                                                     style={{
-                                                        position: "absolute", inset: 5,
+                                                        position: "absolute",
+                                                        inset: 2,
                                                         border: `1px solid ${ts.border}55`,
                                                         borderRadius: "clamp(6px,0.8vw,11px)",
                                                         pointerEvents: "none",
+                                                        boxShadow: "inset 0 0 12px rgba(0,0,0,0.7)"
                                                     }}
                                                 />
                                             )}
@@ -237,9 +241,10 @@ export function StageCategoryBoard({ state }: Props) {
                                             <span
                                                 style={{
                                                     fontFamily: "'Bebas Neue', sans-serif",
-                                                    fontSize: "clamp(14px,2vw,24px)",
-                                                    letterSpacing: "0.07em",
-                                                    color: cat.used ? "#3a3a3a" : "white",
+                                                    fontSize: "clamp(26px,2vw,24px)",
+                                                    letterSpacing: "0.14em",
+                                                    fontWeight:600,
+                                                    color: cat.used ? "#bebbbb" : "white",
                                                     textAlign: "center", lineHeight: 1.2,
                                                     padding: "0 8px",
                                                     textShadow: cat.used ? "none" : `0 0 24px ${ts.glow}cc, 0 2px 10px rgba(0,0,0,0.9)`,
