@@ -841,29 +841,29 @@ function QuestionBankList({ questions, activeCategory, onSelect }: QuestionBankL
     );
 }
 
-interface QuestionInputProps {
-    label: string;
-    value: string;
-    onChange: (val: string) => void;
-    borderColor: string;
-    rows: number;
-}
+// interface QuestionInputProps {
+//     label: string;
+//     value: string;
+//     onChange: (val: string) => void;
+//     borderColor: string;
+//     rows: number;
+// }
 
-function QuestionInput({ label, value, onChange, borderColor, rows }: QuestionInputProps) {
-    return (
-        <div>
-            <label className="field-label">{label}</label>
-            <textarea
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder={`Type ${label.toLowerCase()}...`}
-                rows={rows}
-                className="question-input"
-                style={{ borderColor: `${borderColor}55` }}
-            />
-        </div>
-    );
-}
+// function QuestionInput({ label, value, onChange, borderColor, rows }: QuestionInputProps) {
+//     return (
+//         <div>
+//             <label className="field-label">{label}</label>
+//             <textarea
+//                 value={value}
+//                 onChange={(e) => onChange(e.target.value)}
+//                 placeholder={`Type ${label.toLowerCase()}...`}
+//                 rows={rows}
+//                 className="question-input"
+//                 style={{ borderColor: `${borderColor}55` }}
+//             />
+//         </div>
+//     );
+// }
 
 interface CategoriesCardProps {
     state: ScoreboardState;
