@@ -34,7 +34,14 @@ export function StageCategoryBoard({ state }: Props) {
     const showQuestion = !!active && !active.used;
 
     return (
-        <div style={{ position: "fixed", inset: 0, zIndex: 0 }}>
+        <div style={{
+            position: "fixed",
+            inset: "20px", // Reduced from 0 to create a small margin
+            zIndex: 0,
+            borderRadius: "24px", // Add rounded corners for the container
+            overflow: "hidden", // Keep the rounded corners effect
+            boxShadow: "0 20px 40px rgba(0,0,0,0.6)", // Add depth with shadow
+        }}>
             {/* Stage background */}
             <img
                 src={stageBg}
@@ -42,11 +49,11 @@ export function StageCategoryBoard({ state }: Props) {
                 style={{
                     position: "absolute", inset: 0,
                     width: "100%", height: "100%",
-                    objectFit: "cover", objectPosition: "center",
+                    objectFit: "fill", objectPosition: "center",
                 }}
             />
-            {/* Dark overlay */}
-            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.1)" }} />
+            {/* Dark overlay - slightly darker for better contrast */}
+            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.2)" }} />
 
             {/* ── QUESTION FULLSCREEN ─────────────────────────────────────── */}
             {showQuestion && active && (
@@ -57,22 +64,22 @@ export function StageCategoryBoard({ state }: Props) {
                         position: "absolute", inset: 0, zIndex: 20,
                         display: "flex", flexDirection: "column",
                         alignItems: "center", justifyContent: "center",
-                        padding: "60px clamp(32px,8vw,120px)",
+                        padding: "80px clamp(48px,10vw,160px)", // Increased padding
                         background: `radial-gradient(ellipse 90% 80% at 50% 40%, ${
                             TILE[active.id]?.glow ?? "#fff"
-                        }1a, rgba(0,0,0,0.88))`,
+                        }1a, rgba(0,0,0,0.92))`,
                     }}
                 >
                     {/* Category badge */}
                     <div
                         style={{
                             fontFamily: "'DM Mono', monospace",
-                            fontSize: "clamp(50px,1.1vw,14px)",
+                            fontSize: "clamp(16px,2.5vw,28px)", // Increased font size
                             letterSpacing: "0.45em",
                             color: TILE[active.id]?.border ?? "#fff",
                             textTransform: "uppercase",
-                            marginBottom: 32,
-                            padding: "8px 30px",
+                            marginBottom: 48, // Increased margin
+                            padding: "12px 40px", // Increased padding
                             textAlign:"center",
                             border: `4px solid ${TILE[active.id]?.border ?? "#fff"}60`,
                             borderRadius: 70,
@@ -88,12 +95,12 @@ export function StageCategoryBoard({ state }: Props) {
                         className="reveal-slide"
                         style={{
                             fontFamily: "'Bebas Neue', sans-serif",
-                            fontSize: "clamp(38px,6.5vw,96px)",
+                            fontSize: "72px", // Increased max size
                             letterSpacing: "0.04em",
                             color: "white",
                             textAlign: "center",
                             lineHeight: 1.1,
-                            maxWidth: 1200,
+                            maxWidth: 1400, // Increased max width
                             textShadow: `0 0 80px ${TILE[active.id]?.glow ?? "#fff"}55, 0 4px 20px rgba(0,0,0,0.8)`,
                         }}
                     >
@@ -107,18 +114,19 @@ export function StageCategoryBoard({ state }: Props) {
                         <div
                             className="reveal-slide"
                             style={{
-                                marginTop: 52, paddingTop: 44,
+                                marginTop: 64, // Increased margin
+                                paddingTop: 52, // Increased padding
                                 borderTop: `2px solid ${TILE[active.id]?.border ?? "#fff"}40`,
-                                width: "100%", maxWidth: 1100,
+                                width: "100%", maxWidth: 1300, // Increased max width
                                 display: "flex", flexDirection: "column",
-                                alignItems: "center", gap: 14,
+                                alignItems: "center", gap: 20, // Increased gap
                                 animationDelay: "0.05s",
                             }}
                         >
                             <div
                                 style={{
                                     fontFamily: "'DM Mono', monospace",
-                                    fontSize: "clamp(9px,0.9vw,12px)",
+                                    fontSize: "14px", // Increased font size
                                     letterSpacing: "0.6em",
                                     color: TILE[active.id]?.border ?? "#fff",
                                     opacity: 0.6,
@@ -129,7 +137,7 @@ export function StageCategoryBoard({ state }: Props) {
                             <div
                                 style={{
                                     fontFamily: "'Bebas Neue', sans-serif",
-                                    fontSize: "clamp(34px,5.5vw,78px)",
+                                    fontSize: "clamp(42px,7vw,96px)", // Increased max size
                                     letterSpacing: "0.06em",
                                     color: TILE[active.id]?.border ?? "#fff",
                                     textAlign: "center",
@@ -151,9 +159,10 @@ export function StageCategoryBoard({ state }: Props) {
                     style={{
                         position: "absolute", inset: 0, zIndex: 10,
                         display: "flex", alignItems: "center", justifyContent: "center",
+                        padding: "40px", // Add padding around the board
                     }}
                 >
-                    <div style={{ position: "relative", width: "min(92vw, 1040px)" }}>
+                    <div style={{ position: "relative", width: "100%", maxWidth: "1400px" }}> {/* Increased max width */}
                         {/* Neon frame */}
                         <img
                             src={categoryFrame}
@@ -161,7 +170,7 @@ export function StageCategoryBoard({ state }: Props) {
                             style={{
                                 position: "absolute", inset: "-5% -3%",
                                 width: "106%", height: "110%",
-                                borderRadius: 30,
+                                borderRadius: 40, // Increased border radius
                                 objectFit: "fill", pointerEvents: "none", zIndex: 0,
                             }}
                         />
@@ -170,17 +179,15 @@ export function StageCategoryBoard({ state }: Props) {
                         <div
                             style={{
                                 position: "relative", zIndex: 1,
-                                // background: "rgba(0,0,0,0.85)",
-                                borderRadius: 18,
-                                padding: "30px",
-                                // backdropFilter: "blur(6px)",
+                                borderRadius: 24, // Increased border radius
+                                padding: "40px", // Increased padding
                             }}
                         >
                             <div
                                 style={{
                                     display: "grid",
                                     gridTemplateColumns: "repeat(4,1fr)",
-                                    gap: "clamp(10px,1.5vw,18px)",
+                                    gap: "clamp(16px,2vw,24px)", // Increased gap
                                 }}
                             >
                                 {cats.map((cat) => {
@@ -201,12 +208,12 @@ export function StageCategoryBoard({ state }: Props) {
                                                 border: cat.used
                                                     ? "2px solid #2a2a2a"
                                                     : `2px solid ${ts.border}99`,
-                                                borderRadius: "clamp(10px,1.2vw,16px)",
-                                                minHeight: "clamp(80px,11vw,130px)",
+                                                borderRadius: "clamp(14px,1.5vw,20px)", // Increased border radius
+                                                minHeight: "clamp(100px,14vw,160px)", // Increased min height
                                                 display: "flex", alignItems: "center", justifyContent: "center",
                                                 boxShadow: cat.used
                                                     ? "none"
-                                                    : `0 0 28px ${ts.glow}55, inset 0 0 20px rgba(255,255,255,0.05)`,
+                                                    : `0 0 32px ${ts.glow}55, inset 0 0 24px rgba(255,255,255,0.05)`,
                                                 transition: "all 0.4s ease",
                                                 opacity: cat.used ? 0.5 : 1,
                                                 overflow: "hidden",
@@ -220,7 +227,7 @@ export function StageCategoryBoard({ state }: Props) {
                                                         background: "radial-gradient(circle at 30% 30%, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.15) 50%, transparent 80%)",
                                                         borderRadius: "inherit",
                                                         pointerEvents: "none",
-                                                        mixBlendMode: "overlay", // This helps blend with the background colors
+                                                        mixBlendMode: "overlay",
                                                     }}
                                                 />
                                             )}
@@ -229,25 +236,23 @@ export function StageCategoryBoard({ state }: Props) {
                                                 <div
                                                     style={{
                                                         position: "absolute",
-                                                        inset: 2,
+                                                        inset: 3, // Slightly larger inset
                                                         border: `1px solid ${ts.border}55`,
-                                                        borderRadius: "clamp(6px,0.8vw,11px)",
+                                                        borderRadius: "clamp(10px,1vw,15px)", // Adjusted for larger tiles
                                                         pointerEvents: "none",
-                                                        boxShadow: "inset 0 0 12px rgba(0,0,0,0.7)"
+                                                        boxShadow: "inset 0 0 16px rgba(0,0,0,0.7)"
                                                     }}
                                                 />
                                             )}
 
                                             <span
+                                                className="category-name"
                                                 style={{
-                                                    fontFamily: "'Bebas Neue', sans-serif",
-                                                    fontSize: "clamp(26px,2vw,24px)",
-                                                    letterSpacing: "0.14em",
-                                                    fontWeight:600,
+
                                                     color: cat.used ? "#bebbbb" : "white",
                                                     textAlign: "center", lineHeight: 1.2,
-                                                    padding: "0 8px",
-                                                    textShadow: cat.used ? "none" : `0 0 24px ${ts.glow}cc, 0 2px 10px rgba(0,0,0,0.9)`,
+                                                    padding: "0 12px", // Increased padding
+                                                    textShadow: cat.used ? "none" : `0 0 28px ${ts.glow}cc, 0 2px 10px rgba(0,0,0,0.9)`,
                                                     position: "relative", zIndex: 1,
                                                 }}
                                             >

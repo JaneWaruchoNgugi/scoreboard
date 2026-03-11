@@ -37,6 +37,24 @@ export function AdminView({ onBack }: Props) {
     const { playSound, pauseAllSounds } = useAudioControl(isMuted);
     const teamANameRef = useRef<HTMLInputElement | null>(null);
     const teamAScoreRef = useRef<HTMLInputElement | null>(null);
+    const [pendingQuestion, setPendingQuestion] = useState<{
+        categoryId: string;
+        question: string;
+        answer: string;
+    } | null>(null);
+
+    // Handle delayed timer start when question is clicked
+    // Handle delayed timer start when question is clicked
+    useEffect(() => {
+        if (!pendingQuestion) return;
+
+        const timer = setTimeout(async () => {
+            await handleTimerStart();
+            setPendingQuestion(null);
+        }, 4000);
+
+        return () => clearTimeout(timer);
+    }, [ pendingQuestion]); // ✅ Only fires when a new question is picked
 
     // Load initial state
     useEffect(() => {
@@ -261,6 +279,8 @@ export function AdminView({ onBack }: Props) {
                                 timerIsEnd={timerIsEnd}
                                 countdownCls={countdownCls}
                                 onFocus={handleFocus}
+                                pendingQuestion={pendingQuestion}
+                                setPendingQuestion={setPendingQuestion}
                             />
                         )}
 
@@ -269,6 +289,9 @@ export function AdminView({ onBack }: Props) {
                                 state={state}
                                 categories={state.categories || DEFAULT_CATEGORIES}
                                 onPushState={pushState}
+                                pendingQuestion={pendingQuestion}
+                                setPendingQuestion={setPendingQuestion}
+                                // onTimerStop={handleTimerStop}
                             />
                         )}
                     </div>
@@ -393,6 +416,16 @@ interface TimerCardProps {
     timerIsEnd: boolean;
     countdownCls: string;
     onFocus: (e: React.FocusEvent<HTMLInputElement | null>) => void;
+    pendingQuestion: {
+        categoryId: string;
+        question: string;
+        answer: string;
+    } | null;
+    setPendingQuestion: React.Dispatch<React.SetStateAction<{
+        categoryId: string;
+        question: string;
+        answer: string;
+    } | null>>;
 }
 
 function TimerCard({
@@ -407,7 +440,9 @@ function TimerCard({
                        previewRemaining,
                        timerIsEnd,
                        countdownCls,
-                       onFocus
+                       onFocus,
+                       pendingQuestion,
+                       setPendingQuestion
                    }: TimerCardProps) {
     const previewSecs = Math.ceil(previewRemaining);
     const formatTime = (seconds: number) => seconds <= 0 ? "0" : seconds.toString();
@@ -454,6 +489,9 @@ function TimerCard({
                         state={state}
                         categories={categories}
                         onPushState={onPushState}
+                        pendingQuestion={pendingQuestion}
+                        setPendingQuestion={setPendingQuestion}
+                        onTimerStop={onTimerStop}
                     />
                 )}
             </div>
@@ -461,7 +499,6 @@ function TimerCard({
     );
 }
 
-// Additional subcomponents for TimerCard with proper interfaces
 interface RoundSelectorProps {
     currentRound: number;
     onSelectRound: (round: number) => void;
@@ -620,9 +657,27 @@ interface RoundTwoPanelProps {
     state: ScoreboardState;
     categories: Category[];
     onPushState: (state: ScoreboardState) => Promise<void>;
+    pendingQuestion: {
+        categoryId: string;
+        question: string;
+        answer: string;
+    } | null;
+    setPendingQuestion: React.Dispatch<React.SetStateAction<{
+        categoryId: string;
+        question: string;
+        answer: string;
+    } | null>>;
+    onTimerStop: () => Promise<void>;
 }
 
-function RoundTwoPanel({ state, categories, onPushState }: RoundTwoPanelProps) {
+function RoundTwoPanel({
+                           state,
+                           categories,
+                           onPushState,
+                           pendingQuestion,
+                           setPendingQuestion,
+                           onTimerStop
+                       }: RoundTwoPanelProps) {
     return (
         <div className="round-two-panel">
             <div className="round-two-panel__divider" />
@@ -646,18 +701,24 @@ function RoundTwoPanel({ state, categories, onPushState }: RoundTwoPanelProps) {
                     state={state}
                     categories={categories}
                     onPushState={onPushState}
+                    pendingQuestion={pendingQuestion}
+                    setPendingQuestion={setPendingQuestion}
+                    onTimerStop={onTimerStop}
                 />
             )}
 
             <button
                 className="btn round-two-panel__reset"
-                onClick={async () => onPushState({
-                    ...state,
-                    categories: DEFAULT_CATEGORIES,
-                    activeCategory: null,
-                    showAnswer: false,
-                    lastUpdated: Date.now()
-                })}
+                onClick={async () => {
+                    await onPushState({
+                        ...state,
+                        categories: DEFAULT_CATEGORIES,
+                        activeCategory: null,
+                        showAnswer: false,
+                        lastUpdated: Date.now()
+                    });
+                    setPendingQuestion(null);
+                }}
             >
                 RESET ALL CATEGORIES
             </button>
@@ -702,16 +763,81 @@ interface ActiveCategoryPanelProps {
     state: ScoreboardState;
     categories: Category[];
     onPushState: (state: ScoreboardState) => Promise<void>;
+    pendingQuestion: {
+        categoryId: string;
+        question: string;
+        answer: string;
+    } | null;
+    setPendingQuestion: React.Dispatch<React.SetStateAction<{
+        categoryId: string;
+        question: string;
+        answer: string;
+    } | null>>;
+    // onTimerStop: () => Promise<void>;
 }
 
-function ActiveCategoryPanel({ state, categories, onPushState }: ActiveCategoryPanelProps) {
+
+function ActiveCategoryPanel({
+                                 state,
+                                 categories,
+                                 onPushState,
+                                 pendingQuestion,
+                                 setPendingQuestion,
+                                 // onTimerStop
+                             }: ActiveCategoryPanelProps) {
     const activeIdx = categories.findIndex((c: Category) => c.id === state.activeCategory);
     const active = categories[activeIdx];
+    const [isMuted, setIsMuted] = useState(true);
+
+    const {  pauseAllSounds } = useAudioControl(isMuted);
+
     if (!active) return null;
 
     const updateCat = async (patch: Partial<Category>) => {
         const nc = categories.map((c: Category, i: number) => i === activeIdx ? { ...c, ...patch } : c);
         await onPushState({ ...state, categories: nc, lastUpdated: Date.now() });
+    };
+
+    // Add this function to handle question selection with delay
+    const handleQuestionSelect = async (question: string, answer: string) => {
+        // First, clear any existing pending question to prevent auto-start
+        setPendingQuestion(null);
+
+
+        // Update the question and answer
+        await updateCat({ question, answer });
+
+        // Clear any existing answer visibility
+        if (state.showAnswer) {
+            await onPushState({ ...state, showAnswer: false, lastUpdated: Date.now() });
+        }
+
+        // Set pending question for delayed start
+        setPendingQuestion({
+            categoryId: active.id,
+            question,
+            answer
+        });
+    };
+    const handleAnswerReveal = async () => {
+        setPendingQuestion(null);
+
+        const elapsed = state.timerStartedAt
+            ? (Date.now() - state.timerStartedAt) / 1000
+            : state.timerElapsed || 0;
+
+        await onPushState({
+            ...state,
+            timerRunning: false,                     // ✅ stop timer atomically
+            timerElapsed: state.timerRunning ? elapsed : state.timerElapsed,
+            showAnswer: !state.showAnswer,
+            lastUpdated: Date.now(),
+        });
+
+        if (state.timerRunning) {
+            pauseAllSounds();                        // ✅ mute after save
+            setIsMuted(true);
+        }
     };
 
     return (
@@ -720,11 +846,39 @@ function ActiveCategoryPanel({ state, categories, onPushState }: ActiveCategoryP
                 ▸ {active.name}
             </div>
 
+            {/* Show countdown indicator if question is pending */}
+            {pendingQuestion && pendingQuestion.categoryId === active.id && (
+                <div className="pending-question-indicator" style={{
+                    background: `${active.color}22`,
+                    borderColor: active.borderColor,
+                    padding: "8px 12px",
+                    borderRadius: 6,
+                    marginBottom: 12,
+                    fontSize: 14,
+                    color: active.borderColor,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8
+                }}>
+                    <span className="spinner" style={{
+                        width: 16,
+                        height: 16,
+                        border: `2px solid ${active.borderColor}`,
+                        borderTopColor: "transparent",
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite"
+                    }} />
+                    Question selected — timer starting in 4 seconds...
+                </div>
+            )}
+
             {(active.questionBank || []).length > 0 && (
                 <QuestionBankList
                     questions={active.questionBank}
                     activeCategory={active}
-                    onSelect={(q: string, a: string) => updateCat({ question: q, answer: a })}
+                    onSelect={handleQuestionSelect}
+                    selectedQuestion={active.question}
+                    pendingQuestion={pendingQuestion}
                 />
             )}
 
@@ -734,26 +888,11 @@ function ActiveCategoryPanel({ state, categories, onPushState }: ActiveCategoryP
                 </div>
             )}
 
-            {/*<QuestionInput*/}
-            {/*    label="QUESTION (OVERRIDE)"*/}
-            {/*    value={active.question}*/}
-            {/*    onChange={(val: string) => updateCat({ question: val })}*/}
-            {/*    borderColor={active.borderColor}*/}
-            {/*    rows={3}*/}
-            {/*/>*/}
-
-            {/*<QuestionInput*/}
-            {/*    label="ANSWER"*/}
-            {/*    value={active.answer}*/}
-            {/*    onChange={(val: string) => updateCat({ answer: val })}*/}
-            {/*    borderColor={active.borderColor}*/}
-            {/*    rows={2}*/}
-            {/*/>*/}
-
             <div className="active-category-panel__actions">
                 <button
                     className="btn active-category-panel__answer-btn"
-                    onClick={async () => onPushState({ ...state, showAnswer: !state.showAnswer, lastUpdated: Date.now() })}
+                    onClick={handleAnswerReveal}
+
                     style={{
                         background: state.showAnswer ? `${active.color}55` : "var(--surface3)",
                         borderColor: state.showAnswer ? active.borderColor : "var(--border2)",
@@ -776,6 +915,7 @@ function ActiveCategoryPanel({ state, categories, onPushState }: ActiveCategoryP
                             showAnswer: false,
                             lastUpdated: Date.now()
                         });
+                        setPendingQuestion(null);
                     }}
                     style={{
                         background: active.used ? "rgba(0,229,160,0.1)" : "rgba(255,64,96,0.1)",
@@ -789,21 +929,29 @@ function ActiveCategoryPanel({ state, categories, onPushState }: ActiveCategoryP
 
             <button
                 className="btn active-category-panel__clear"
-                onClick={async () => onPushState({ ...state, activeCategory: null, showAnswer: false, lastUpdated: Date.now() })}
+                onClick={async () => {
+                    await onPushState({ ...state, activeCategory: null, showAnswer: false, lastUpdated: Date.now() });
+                    setPendingQuestion(null);
+                }}
             >
                 ✕ CLEAR SELECTION
             </button>
         </div>
     );
 }
-
 interface QuestionBankListProps {
     questions: QuestionEntry[];
     activeCategory: Category;
     onSelect: (q: string, a: string) => void;
+    selectedQuestion?: string;
+    pendingQuestion: {
+        categoryId: string;
+        question: string;
+        answer: string;
+    } | null;
 }
 
-function QuestionBankList({ questions, activeCategory, onSelect }: QuestionBankListProps) {
+function QuestionBankList({ questions, activeCategory, onSelect, selectedQuestion, pendingQuestion }: QuestionBankListProps) {
     return (
         <div className="question-bank-list">
             <div className="question-bank-list__label">
@@ -811,16 +959,20 @@ function QuestionBankList({ questions, activeCategory, onSelect }: QuestionBankL
             </div>
             <div className="question-bank-list__items">
                 {questions.map((entry: QuestionEntry, idx: number) => {
-                    const isSel = activeCategory.question === entry.q && activeCategory.answer === entry.a;
+                    const isSel = selectedQuestion === entry.q;
+                    const isPending = pendingQuestion?.question === entry.q;
                     return (
                         <button
                             key={entry.id}
                             onClick={() => onSelect(entry.q, entry.a)}
-                            className={`question-bank-list__item ${isSel ? 'selected' : ''}`}
+                            className={`question-bank-list__item ${isSel ? 'selected' : ''} ${isPending ? 'pending' : ''}`}
                             style={{
                                 background: isSel ? `${activeCategory.color}55` : "var(--surface3)",
                                 borderColor: isSel ? activeCategory.borderColor : "transparent",
+                                opacity: isPending ? 0.7 : 1,
+                                cursor: isPending ? "wait" : "pointer"
                             }}
+                            disabled={isPending}
                         >
                             <div className="question-bank-list__item-index" style={{ background: isSel ? activeCategory.borderColor : activeCategory.color }}>
                                 {isSel ? "✓" : idx + 1}
@@ -841,37 +993,31 @@ function QuestionBankList({ questions, activeCategory, onSelect }: QuestionBankL
     );
 }
 
-// interface QuestionInputProps {
-//     label: string;
-//     value: string;
-//     onChange: (val: string) => void;
-//     borderColor: string;
-//     rows: number;
-// }
-
-// function QuestionInput({ label, value, onChange, borderColor, rows }: QuestionInputProps) {
-//     return (
-//         <div>
-//             <label className="field-label">{label}</label>
-//             <textarea
-//                 value={value}
-//                 onChange={(e) => onChange(e.target.value)}
-//                 placeholder={`Type ${label.toLowerCase()}...`}
-//                 rows={rows}
-//                 className="question-input"
-//                 style={{ borderColor: `${borderColor}55` }}
-//             />
-//         </div>
-//     );
-// }
-
 interface CategoriesCardProps {
     state: ScoreboardState;
     categories: Category[];
     onPushState: (state: ScoreboardState) => Promise<void>;
+    pendingQuestion: {
+        categoryId: string;
+        question: string;
+        answer: string;
+    } | null;
+    setPendingQuestion: React.Dispatch<React.SetStateAction<{
+        categoryId: string;
+        question: string;
+        answer: string;
+    } | null>>;
+    // onTimerStop: () => Promise<void>;
 }
 
-function CategoriesCard({ state, categories, onPushState }: CategoriesCardProps) {
+function CategoriesCard({
+                            state,
+                            categories,
+                            onPushState,
+                            pendingQuestion,
+                            setPendingQuestion,
+                            // onTimerStop
+                        }: CategoriesCardProps) {
     return (
         <ControlCard accent="var(--cyan)" title="CATEGORIES">
             <div className="categories-card__content">
@@ -893,6 +1039,9 @@ function CategoriesCard({ state, categories, onPushState }: CategoriesCardProps)
                         state={state}
                         categories={categories}
                         onPushState={onPushState}
+                        pendingQuestion={pendingQuestion}
+                        setPendingQuestion={setPendingQuestion}
+                        // onTimerStop={onTimerStop}
                     />
                 )}
             </div>
