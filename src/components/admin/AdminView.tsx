@@ -474,7 +474,6 @@ function TimerCard({
                     pausedAt={state.timerStartedAt && !state.timerRunning ? previewSecs : null}
                     formatTime={formatTime}
                 />
-
                 <TimerControls
                     isRunning={state.timerRunning}
                     hasStarted={state.timerStartedAt !== null}
