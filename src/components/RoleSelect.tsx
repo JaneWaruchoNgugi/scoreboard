@@ -64,17 +64,17 @@ export function RoleSelect({ onSelect }: Props) {
                         textShadow: "0 0 60px rgba(0,212,255,0.2)",
                     }}
                 >
-                    SCOREBOARD
+                    BONGOQUIZ
                 </div>
-                <div
-                    style={{
-                        fontFamily: "'DM Mono', monospace", fontSize: 11,
-                        letterSpacing: "0.4em", color: "var(--cyan)",
-                        textTransform: "uppercase", marginTop: 10, opacity: 0.8,
-                    }}
-                >
-                    LIVE · CROSS-DEVICE · REAL-TIME
-                </div>
+                {/*<div*/}
+                {/*    style={{*/}
+                {/*        fontFamily: "'DM Mono', monospace", fontSize: 11,*/}
+                {/*        letterSpacing: "0.4em", color: "var(--cyan)",*/}
+                {/*        textTransform: "uppercase", marginTop: 10, opacity: 0.8,*/}
+                {/*    }}*/}
+                {/*>*/}
+                {/*    LIVE · CROSS-DEVICE · REAL-TIME*/}
+                {/*</div>*/}
             </div>
 
             {/* Role cards */}
