@@ -734,21 +734,21 @@ function ActiveCategoryPanel({ state, categories, onPushState }: ActiveCategoryP
                 </div>
             )}
 
-            <QuestionInput
-                label="QUESTION (OVERRIDE)"
-                value={active.question}
-                onChange={(val: string) => updateCat({ question: val })}
-                borderColor={active.borderColor}
-                rows={3}
-            />
+            {/*<QuestionInput*/}
+            {/*    label="QUESTION (OVERRIDE)"*/}
+            {/*    value={active.question}*/}
+            {/*    onChange={(val: string) => updateCat({ question: val })}*/}
+            {/*    borderColor={active.borderColor}*/}
+            {/*    rows={3}*/}
+            {/*/>*/}
 
-            <QuestionInput
-                label="ANSWER"
-                value={active.answer}
-                onChange={(val: string) => updateCat({ answer: val })}
-                borderColor={active.borderColor}
-                rows={2}
-            />
+            {/*<QuestionInput*/}
+            {/*    label="ANSWER"*/}
+            {/*    value={active.answer}*/}
+            {/*    onChange={(val: string) => updateCat({ answer: val })}*/}
+            {/*    borderColor={active.borderColor}*/}
+            {/*    rows={2}*/}
+            {/*/>*/}
 
             <div className="active-category-panel__actions">
                 <button

@@ -19,8 +19,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
         used: false, question: "", answer: "",
         questionBank: [
             { id: "h1", q: "Who was the first President of Kenya?", a: "Jomo Kenyatta" },
-            // { id: "h2", q: "In which year did Kenya gain independence?", a: "1963" },
-            // { id: "h3", q: "Which country built the Uganda Railway?", a: "Britain (UK)" },
+            { id: "h2", q: "In which year did Kenya gain independence?", a: "1963" },
+            { id: "h3", q: "Which country built the Uganda Railway?", a: "Britain (UK)" },
         ],
     },
     {
@@ -28,8 +28,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
         used: false, question: "", answer: "",
         questionBank: [
             { id: "g1", q: "What is the capital city of Kenya?", a: "Nairobi" },
-            // { id: "g2", q: "How many counties does Kenya have?", a: "47" },
-            // { id: "g3", q: "What is the national animal of Kenya?", a: "Lion" },
+            { id: "g2", q: "How many counties does Kenya have?", a: "47" },
+            { id: "g3", q: "What is the national animal of Kenya?", a: "Lion" },
         ],
     },
     {
@@ -37,8 +37,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
         used: false, question: "", answer: "",
         questionBank: [
             { id: "k1", q: "Tafsiri neno 'Uhuru' kwa Kiingereza", a: "Freedom / Independence" },
-            // { id: "k2", q: "Kamilisha msemo: 'Haraka haraka...'", a: "...haina baraka" },
-            // { id: "k3", q: "Wingi wa neno 'mtoto' ni nini?", a: "Watoto" },
+            { id: "k2", q: "Kamilisha msemo: 'Haraka haraka...'", a: "...haina baraka" },
+            { id: "k3", q: "Wingi wa neno 'mtoto' ni nini?", a: "Watoto" },
         ],
     },
     {
@@ -46,8 +46,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
         used: false, question: "", answer: "",
         questionBank: [
             { id: "s1", q: "Which Kenyan athlete won the 2023 London Marathon?", a: "Kelvin Kiptum" },
-            // { id: "s2", q: "How many players are on a standard football team on the pitch?", a: "11" },
-            // { id: "s3", q: "In which sport does Kenya dominate world records for long distances?", a: "Athletics (Running)" },
+            { id: "s2", q: "How many players are on a standard football team on the pitch?", a: "11" },
+            { id: "s3", q: "In which sport does Kenya dominate world records for long distances?", a: "Athletics (Running)" },
         ],
     },
     {
@@ -55,8 +55,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
         used: false, question: "", answer: "",
         questionBank: [
             { id: "c1", q: "How many books are in the New Testament?", a: "27" },
-            // { id: "c2", q: "Who baptised Jesus Christ?", a: "John the Baptist" },
-            // { id: "c3", q: "Name the first miracle of Jesus", a: "Turning water into wine (Cana)" },
+            { id: "c2", q: "Who baptised Jesus Christ?", a: "John the Baptist" },
+            { id: "c3", q: "Name the first miracle of Jesus", a: "Turning water into wine (Cana)" },
         ],
     },
     {
@@ -64,8 +64,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
         used: false, question: "", answer: "",
         questionBank: [
             { id: "geo1", q: "What is the highest mountain in Africa?", a: "Mount Kilimanjaro" },
-            // { id: "geo2", q: "Which lake borders Kenya, Uganda and Tanzania?", a: "Lake Victoria" },
-            // { id: "geo3", q: "Name the longest river in Africa", a: "River Nile" },
+            { id: "geo2", q: "Which lake borders Kenya, Uganda and Tanzania?", a: "Lake Victoria" },
+            { id: "geo3", q: "Name the longest river in Africa", a: "River Nile" },
         ],
     },
     {
@@ -73,8 +73,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
         used: false, question: "", answer: "",
         questionBank: [
             { id: "sci1", q: "What is the chemical symbol for water?", a: "H₂O" },
-            // { id: "sci2", q: "How many bones are in the adult human body?", a: "206" },
-            // { id: "sci3", q: "What planet is closest to the Sun?", a: "Mercury" },
+            { id: "sci2", q: "How many bones are in the adult human body?", a: "206" },
+            { id: "sci3", q: "What planet is closest to the Sun?", a: "Mercury" },
         ],
     },
     {
@@ -82,8 +82,8 @@ export const DEFAULT_CATEGORIES: Category[] = [
         used: false, question: "", answer: "",
         questionBank: [
             { id: "e1", q: "What is the name of Simba's father in The Lion King?", a: "Mufasa" },
-            // { id: "e2", q: "Which country does the K-pop group BTS come from?", a: "South Korea" },
-            // { id: "e3", q: "How many Harry Potter books are in the main series?", a: "7" },
+            { id: "e2", q: "Which country does the K-pop group BTS come from?", a: "South Korea" },
+            { id: "e3", q: "How many Harry Potter books are in the main series?", a: "7" },
         ],
     },
 ];
