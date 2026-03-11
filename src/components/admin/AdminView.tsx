@@ -491,7 +491,7 @@ function TimerCard({
                         onPushState={onPushState}
                         pendingQuestion={pendingQuestion}
                         setPendingQuestion={setPendingQuestion}
-                        onTimerStop={onTimerStop}
+                        // onTimerStop={onTimerStop}
                     />
                 )}
             </div>
@@ -667,7 +667,7 @@ interface RoundTwoPanelProps {
         question: string;
         answer: string;
     } | null>>;
-    onTimerStop: () => Promise<void>;
+    // onTimerStop: () => Promise<void>;
 }
 
 function RoundTwoPanel({
@@ -676,7 +676,7 @@ function RoundTwoPanel({
                            onPushState,
                            pendingQuestion,
                            setPendingQuestion,
-                           onTimerStop
+                           // onTimerStop
                        }: RoundTwoPanelProps) {
     return (
         <div className="round-two-panel">
@@ -703,7 +703,7 @@ function RoundTwoPanel({
                     onPushState={onPushState}
                     pendingQuestion={pendingQuestion}
                     setPendingQuestion={setPendingQuestion}
-                    onTimerStop={onTimerStop}
+                    // onTimerStop={onTimerStop}
                 />
             )}
 
