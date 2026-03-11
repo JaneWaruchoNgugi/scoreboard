@@ -18,8 +18,8 @@ export function TimerOnlyView({ onBack }: Props) {
     const { state, status } = useFirebaseState();
     const { secs, isWarning, isEnd, progress } = useCountdown(state);
 
-    const R = 200;
-    const circumference = 2 * Math.PI * R;
+    // const R = 200;
+    // const circumference = 2 * Math.PI * R;
     // const miniCircumference = 2 * Math.PI * 30;
 
     const timerColor = isEnd ? "var(--text3)" : isWarning ? "var(--red)" : "var(--green)";
