@@ -159,10 +159,10 @@ export function StageCategoryBoard({ state }: Props) {
                     style={{
                         position: "absolute", inset: 0, zIndex: 10,
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        padding: "40px", // Add padding around the board
+                        padding: "40px 50px", // Add padding around the board
                     }}
                 >
-                    <div style={{ position: "relative", width: "100%", maxWidth: "1400px" }}> {/* Increased max width */}
+                    <div style={{ position: "relative", width: "100%", padding:"10px", maxWidth: "1400px" }}> {/* Increased max width */}
                         {/* Neon frame */}
                         <img
                             src={categoryFrame}
