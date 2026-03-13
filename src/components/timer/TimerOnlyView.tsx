@@ -4,6 +4,7 @@ import "../shared/GlobalStyles.css";
 import {StageCategoryBoard} from "../shared/StageCategoryBoard";
 import {useFirebaseState} from "../../hooks/useFirebaseState";
 import {useCountdown} from "../../hooks/useCountdown";
+import { useState } from "react";
 
 interface Props {
     onBack: () => void;
@@ -18,10 +19,10 @@ const STATUS_COLOR: Record<string, string> = {
 export function TimerOnlyView({onBack}: Props) {
     const {state, status} = useFirebaseState();
     const {secs, isWarning, isEnd, progress} = useCountdown(state);
+    const [imageLoaded, setImageLoaded] = useState(false);
 
     const R = 200;
     const circumference = 2 * Math.PI * R;
-    // const miniCircumference = 2 * Math.PI * 30;
 
     const timerColor = isEnd ? "var(--text3)" : isWarning ? "var(--red)" : "var(--green)";
     const ringColor = isEnd ? "#222" : isWarning ? "var(--red)" : "var(--green)";
@@ -96,75 +97,58 @@ export function TimerOnlyView({onBack}: Props) {
                             pointerEvents: "none",
                         }}
                     >
-                            <div style={{position: "relative", width: 200, height: 200}}>
-                                <svg width="200" height="200" style={{transform: "rotate(-90deg)"}}>
-                                    <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(255,255,255,0.07)"
-                                            strokeWidth="10"/>
-                                    <circle
-                                        cx="100" cy="100" r="80" fill="none" stroke={ringColor} strokeWidth="10"
-                                        strokeDasharray={2 * Math.PI * 80}
-                                        strokeDashoffset={2 * Math.PI * 80 * (1 - progress)}
-                                        strokeLinecap="round"
-                                        style={{
-                                            transition: "stroke-dashoffset 0.15s linear, stroke 0.4s ease",
-                                            filter: `drop-shadow(0 0 12px ${glowColor})`,
-                                        }}
-                                    />
-                                </svg>
-                                <div
+                        <div style={{position: "relative", width: 200, height: 200}}>
+                            <svg width="200" height="200" style={{transform: "rotate(-90deg)"}}>
+                                <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(255,255,255,0.07)"
+                                        strokeWidth="10"/>
+                                <circle
+                                    cx="100" cy="100" r="80" fill="none" stroke={ringColor} strokeWidth="10"
+                                    strokeDasharray={2 * Math.PI * 80}
+                                    strokeDashoffset={2 * Math.PI * 80 * (1 - progress)}
+                                    strokeLinecap="round"
                                     style={{
-                                        position: "absolute", inset: 0,
-                                        display: "flex", flexDirection: "column",
-                                        alignItems: "center", justifyContent: "center",
+                                        transition: "stroke-dashoffset 0.15s linear, stroke 0.4s ease",
+                                        filter: `drop-shadow(0 0 12px ${glowColor})`,
+                                    }}
+                                />
+                            </svg>
+                            <div
+                                style={{
+                                    position: "absolute", inset: 0,
+                                    display: "flex", flexDirection: "column",
+                                    alignItems: "center", justifyContent: "center",
+                                }}
+                            >
+                                <div
+                                    className={isWarning ? "timer-warning" : ""}
+                                    style={{
+                                        fontFamily: "'Bebas Neue', sans-serif",
+                                        fontSize: isEnd ? 48 : 92,
+                                        color: timerColor, lineHeight: 1,
+                                        textShadow: isWarning
+                                            ? "0 0 30px rgba(255,64,96,0.8)"
+                                            : "0 0 30px rgba(0,229,160,0.6)",
                                     }}
                                 >
-                                    <div
-                                        className={isWarning ? "timer-warning" : ""}
-                                        style={{
-                                            fontFamily: "'Bebas Neue', sans-serif",
-                                            fontSize: isEnd ? 48 : 92,
-                                            color: timerColor, lineHeight: 1,
-                                            textShadow: isWarning
-                                                ? "0 0 30px rgba(255,64,96,0.8)"
-                                                : "0 0 30px rgba(0,229,160,0.6)",
-                                        }}
-                                    >
-                                        {isEnd ? "END" : secs}
-                                    </div>
-                                    {!isEnd && (
-                                        <div style={{
-                                            fontFamily: "'DM Mono', monospace",
-                                            fontSize: 14,
-                                            color: "rgba(255,255,255,0.4)",
-                                            letterSpacing: "0.2em",
-                                            marginTop: 4
-                                        }}>
-                                            SECONDS
-                                        </div>
-                                    )}
+                                    {isEnd ? "END" : secs}
                                 </div>
+                                {!isEnd && (
+                                    <div style={{
+                                        fontFamily: "'DM Mono', monospace",
+                                        fontSize: 14,
+                                        color: "rgba(255,255,255,0.4)",
+                                        letterSpacing: "0.2em",
+                                        marginTop: 4
+                                    }}>
+                                        SECONDS
+                                    </div>
+                                )}
                             </div>
-
-
-
-                    {/* Timer status text - now below the ring */}
-                    {/*<div*/}
-                    {/*    style={{*/}
-                    {/*        fontFamily: "'DM Mono', monospace",*/}
-                    {/*        fontSize: 16,*/}
-                    {/*        letterSpacing: "0.2em",*/}
-                    {/*        color: isEnd ? "rgba(255,255,255,0.3)" : isWarning ? "var(--red)" : state.timerRunning ? "var(--green)" : "rgba(255,255,255,0.5)",*/}
-                    {/*        marginTop: 16,*/}
-                    {/*        textAlign: "center",*/}
-                    {/*    }}*/}
-                    {/*>*/}
-                    {/*    {isEnd ? "FINISHED" : state.timerRunning ? "RUNNING" : "READY"}*/}
-                    {/*</div>*/}
+                        </div>
+                    </div>
                 </div>
             </div>
-    </div>
-    )
-        ;
+        );
     }
 
     // ── ROUND 1: stage background + big ring ────────────────────────────────
@@ -176,10 +160,38 @@ export function TimerOnlyView({onBack}: Props) {
                 alignItems: "center", justifyContent: "center",
             }}
         >
+            {/* Shimmering loader - shown while image is loading */}
+            {!imageLoaded && (
+                <div
+                    style={{
+                        position: "absolute",
+                        inset: 0,
+                        width: "100%",
+                        height: "100%",
+                        background: "linear-gradient(90deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%)",
+                        backgroundSize: "200% 100%",
+                        animation: "shimmer 1.5s infinite",
+                        zIndex: 1,
+                    }}
+                />
+            )}
 
-            {/* Stage bg */}
-            <img src={stageBg} alt=""
-                 style={{position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover"}}/>
+            {/* Stage bg with loading handler */}
+            <img
+                src={stageBg}
+                alt=""
+                onLoad={() => setImageLoaded(true)}
+                style={{
+                    position: "absolute",
+                    inset: 0,
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                    opacity: imageLoaded ? 1 : 0,
+                    transition: "opacity 0.5s ease-in-out",
+                    zIndex: 2,
+                }}
+            />
 
             {/* Top bar */}
             <div style={{
@@ -228,67 +240,65 @@ export function TimerOnlyView({onBack}: Props) {
                 </div>
             </div>
             {state.timerRunning ? (
-
-
-                     // Big ring
-            <div style={{
-                position: "relative",
-                zIndex: 5,
-                width: 480,
-                height: 480,
-                maxWidth: "min(480px,78vw)",
-                maxHeight: "min(480px,78vw)"
-            }}>
-                <svg width="100%" height="100%" viewBox="0 0 480 480"
-                     style={{transform: "rotate(-90deg)", filter: `drop-shadow(0 0 40px ${glowColor})`}}>
-                    <circle cx="240" cy="240" r={R} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="14"/>
-                    <circle cx="240" cy="240" r={R} fill="none" stroke={ringColor} strokeWidth="14"
-                            strokeDasharray={circumference} strokeDashoffset={circumference * (1 - progress)}
-                            strokeLinecap="round"
-                            style={{transition: "stroke-dashoffset 0.15s linear, stroke 0.4s ease"}}/>
-                </svg>
+                // Big ring
                 <div style={{
-                    position: "absolute",
-                    inset: 0,
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 4
+                    position: "relative",
+                    zIndex: 5,
+                    width: 480,
+                    height: 480,
+                    maxWidth: "min(480px,78vw)",
+                    maxHeight: "min(480px,78vw)"
                 }}>
-                    {isEnd ? (
-                        <div style={{
-                            fontFamily: "'Bebas Neue', sans-serif",
-                            fontSize: "clamp(60px,14vw,110px)",
-                            letterSpacing: "0.08em",
-                            color: "rgba(255,255,255,0.3)",
-                            lineHeight: 1
-                        }}>TIME</div>
-                    ) : (
-                        <>
-                            <div className={isWarning ? "timer-warning" : ""} style={{
-                                fontFamily: "'Bebas Neue', sans-serif",
-                                fontSize: "clamp(90px,20vw,160px)",
-                                letterSpacing: "-0.03em",
-                                color: timerColor,
-                                lineHeight: 1,
-                                textShadow: isWarning ? "0 0 60px rgba(255,64,96,0.7)" : "0 0 40px rgba(0,229,160,0.4)"
-                            }}>
-                                {secs}
-                            </div>
+                    <svg width="100%" height="100%" viewBox="0 0 480 480"
+                         style={{transform: "rotate(-90deg)", filter: `drop-shadow(0 0 40px ${glowColor})`}}>
+                        <circle cx="240" cy="240" r={R} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="14"/>
+                        <circle cx="240" cy="240" r={R} fill="none" stroke={ringColor} strokeWidth="14"
+                                strokeDasharray={circumference} strokeDashoffset={circumference * (1 - progress)}
+                                strokeLinecap="round"
+                                style={{transition: "stroke-dashoffset 0.15s linear, stroke 0.4s ease"}}/>
+                    </svg>
+                    <div style={{
+                        position: "absolute",
+                        inset: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 4
+                    }}>
+                        {isEnd ? (
                             <div style={{
-                                fontFamily: "'DM Mono', monospace",
-                                fontSize: "clamp(12px,2vw,18px)",
-                                letterSpacing: "0.3em",
-                                color: isWarning ? "rgba(255,64,96,0.6)" : "rgba(255,255,255,0.35)"
-                            }}>
-                                SECONDS
-                            </div>
-                        </>
-                    )}
+                                fontFamily: "'Bebas Neue', sans-serif",
+                                fontSize: "clamp(60px,14vw,110px)",
+                                letterSpacing: "0.08em",
+                                color: "rgba(255,255,255,0.3)",
+                                lineHeight: 1
+                            }}>TIME</div>
+                        ) : (
+                            <>
+                                <div className={isWarning ? "timer-warning" : ""} style={{
+                                    fontFamily: "'Bebas Neue', sans-serif",
+                                    fontSize: "clamp(90px,20vw,160px)",
+                                    letterSpacing: "-0.03em",
+                                    color: timerColor,
+                                    lineHeight: 1,
+                                    textShadow: isWarning ? "0 0 60px rgba(255,64,96,0.7)" : "0 0 40px rgba(0,229,160,0.4)"
+                                }}>
+                                    {secs}
+                                </div>
+                                <div style={{
+                                    fontFamily: "'DM Mono', monospace",
+                                    fontSize: "clamp(12px,2vw,18px)",
+                                    letterSpacing: "0.3em",
+                                    color: isWarning ? "rgba(255,64,96,0.6)" : "rgba(255,255,255,0.35)"
+                                }}>
+                                    SECONDS
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
-            </div>
-                ):(
+            ):(
                 <img
                     src={bongoQuiz}
                     alt=""
@@ -297,7 +307,8 @@ export function TimerOnlyView({onBack}: Props) {
                         inset: 0,
                         width: "100%",
                         height: "100%",
-                        objectFit: "cover"
+                        objectFit: "cover",
+                        zIndex: 3,
                     }}
                 />
             )}
@@ -325,8 +336,6 @@ export function TimerOnlyView({onBack}: Props) {
                     style={{color: isEnd ? "rgba(255,255,255,0.25)" : state.timerRunning ? "var(--green)" : "rgba(255,255,255,0.5)"}}>
                     {isEnd ? "FINISHED" : state.timerRunning ? "RUNNING" : ""}
                 </span>
-                {/*{!isEnd && !state.timerRunning &&*/}
-                {/*    <span style={{color: "rgba(255,255,255,0.25)"}}>· WAITING FOR OPERATOR</span>}*/}
             </div>
         </div>
     );
