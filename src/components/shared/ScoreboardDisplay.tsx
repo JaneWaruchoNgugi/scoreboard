@@ -4,9 +4,10 @@ import { ScoreCard } from "./ScoreCard";
 
 interface Props {
     state: ScoreboardState;
+    showScores?: boolean; // Add this prop
 }
 
-export function ScoreboardDisplay({ state }: Props) {
+export function ScoreboardDisplay({ state, showScores = false }: Props) { // Accept the prop
     const [tick, setTick] = useState(true);
     useEffect(() => {
         const t = setInterval(() => setTick((b) => !b), 900);
@@ -22,7 +23,7 @@ export function ScoreboardDisplay({ state }: Props) {
                 overflow: "hidden",
             }}
         >
-            {/* Header */}
+            {/* Header (unchanged) */}
             <div
                 style={{
                     background: "var(--surface2)",
@@ -33,6 +34,7 @@ export function ScoreboardDisplay({ state }: Props) {
                     flexWrap: "wrap", gap: 12,
                 }}
             >
+                {/* ... header content remains the same ... */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div
                         style={{
@@ -86,15 +88,15 @@ export function ScoreboardDisplay({ state }: Props) {
                 >
                     {state.lastUpdated
                         ? new Date(state.lastUpdated).toLocaleTimeString([], {
-                              hour: "2-digit", minute: "2-digit", second: "2-digit",
-                          })
+                            hour: "2-digit", minute: "2-digit", second: "2-digit",
+                        })
                         : "—"}
                 </div>
             </div>
 
-            {/* Scores */}
+            {/* Scores - Pass showScores prop to ScoreCard */}
             <div style={{ display: "flex", alignItems: "center" }}>
-                <ScoreCard team={state.teamA} isHome={true} />
+                <ScoreCard team={state.teamA} isHome={true} showScore={showScores} />
                 <div
                     style={{
                         display: "flex", flexDirection: "column", alignItems: "center",
@@ -105,8 +107,26 @@ export function ScoreboardDisplay({ state }: Props) {
                     <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.1em", color: "var(--text3)" }}>VS</span>
                     <div style={{ width: 1, height: 60, background: "linear-gradient(to bottom, transparent, var(--border2), transparent)" }} />
                 </div>
-                <ScoreCard team={state.teamB} isHome={false} />
+                <ScoreCard team={state.teamB} isHome={false} showScore={showScores} />
             </div>
+
+            {/* Optional: Add a subtle indicator when scores are hidden */}
+            {!showScores && (
+                <div
+                    style={{
+                        padding: "8px 16px",
+                        textAlign: "center",
+                        borderTop: "1px solid var(--border2)",
+                        fontFamily: "'DM Mono', monospace",
+                        fontSize: 10,
+                        color: "var(--text3)",
+                        letterSpacing: "0.1em",
+                        background: "rgba(0,0,0,0.2)",
+                    }}
+                >
+                    🔒 SCORES HIDDEN
+                </div>
+            )}
         </div>
     );
 }

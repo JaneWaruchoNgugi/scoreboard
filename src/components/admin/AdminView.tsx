@@ -397,7 +397,7 @@ function PreviewColumn({ state }: PreviewColumnProps) {
     return (
         <div className="preview-col">
             <div className="preview-col__label">LIVE PREVIEW</div>
-            <ScoreboardDisplay state={state} />
+            <ScoreboardDisplay state={state} showScores={true}/>
             <div className="preview-col__hint">Click PUBLISH to push scores to all viewers instantly</div>
         </div>
     );

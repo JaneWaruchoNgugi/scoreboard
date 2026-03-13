@@ -1,3 +1,4 @@
+import { useState } from "react";
 import "../shared/GlobalStyles.css";
 import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
 // import { CountdownDisplay } from "../shared/CountdownDisplay";
@@ -20,6 +21,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export function ViewerView({ onBack }: Props) {
     const { state, status } = useFirebaseState();
+    const [showScores, setShowScores] = useState(false);
     const color = STATUS_COLOR[status];
 
     return (
@@ -50,7 +52,25 @@ export function ViewerView({ onBack }: Props) {
                 >
                     ← Back
                 </button>
-                <div />
+
+                {/* View Scores Button */}
+                <button
+                    className="btn"
+                    onClick={() => setShowScores(!showScores)}
+                    style={{
+                        background: showScores ? "var(--surface2)" : "var(--primary)",
+                        color: showScores ? "var(--text2)" : "white",
+                        padding: "10px 20px",
+                        fontSize: 13,
+                        border: "1px solid var(--border)",
+                        transition: "all 0.2s ease",
+                        cursor: "pointer",
+                        minWidth: "120px",
+                    }}
+                >
+                    {showScores ? "HIDE SCORES 🔒" : "VIEW SCORES 👁️"}
+                </button>
+
                 <div
                     style={{
                         display: "flex", alignItems: "center", gap: 8,
@@ -80,7 +100,7 @@ export function ViewerView({ onBack }: Props) {
                     display: "flex", flexDirection: "column", gap: 16,
                 }}
             >
-                <ScoreboardDisplay state={state} />
+                <ScoreboardDisplay state={state} showScores={showScores} />
                 {/*<CountdownDisplay state={state} />*/}
             </div>
         </div>

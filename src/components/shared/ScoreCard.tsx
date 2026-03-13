@@ -4,9 +4,10 @@ import type { Team } from "../../types";
 interface Props {
     team: Team;
     isHome: boolean;
+    showScore?: boolean; // Add this prop
 }
 
-export function ScoreCard({ team, isHome }: Props) {
+export function ScoreCard({ team, isHome, showScore = false }: Props) {
     const prevScore = useRef(team.score);
     const [popping, setPopping] = useState(false);
 
@@ -53,18 +54,43 @@ export function ScoreCard({ team, isHome }: Props) {
             >
                 {team.name}
             </div>
+
+            {/* Score with hiding functionality */}
             <div
-                className={popping ? "score-pop" : ""}
+                className={popping && showScore ? "score-pop" : ""}
                 style={{
                     fontFamily: "'Bebas Neue', sans-serif",
                     fontSize: "clamp(72px,16vw,148px)",
                     letterSpacing: "-0.02em",
-                    color: accent, lineHeight: 1,
-                    textShadow: `0 0 60px ${dimAccent}`,
+                    color: showScore ? accent : "transparent",
+                    lineHeight: 1,
+                    textShadow: showScore ? `0 0 60px ${dimAccent}` : "none",
+                    position: "relative",
+                    background: !showScore
+                        ? "repeating-linear-gradient(45deg, rgba(255,255,255,0.1) 0px, rgba(255,255,255,0.1) 8px, rgba(255,255,255,0.05) 8px, rgba(255,255,255,0.05) 16px)"
+                        : "none",
+                    WebkitBackgroundClip: !showScore ? "text" : "none",
+                    backgroundClip: !showScore ? "text" : "none",
                 }}
             >
-                {String(team.score).padStart(2, "0")}
+                {showScore ? String(team.score).padStart(2, "0") : "??"}
             </div>
+
+            {/* Optional small indicator */}
+            {!showScore && (
+                <div
+                    style={{
+                        fontFamily: "'DM Mono', monospace",
+                        fontSize: 9,
+                        color: "var(--text3)",
+                        marginTop: 4,
+                        opacity: 0.5,
+                        letterSpacing: "0.1em",
+                    }}
+                >
+                    HIDDEN
+                </div>
+            )}
         </div>
     );
 }
