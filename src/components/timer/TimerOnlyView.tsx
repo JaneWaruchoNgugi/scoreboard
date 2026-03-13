@@ -96,7 +96,6 @@ export function TimerOnlyView({onBack}: Props) {
                             pointerEvents: "none",
                         }}
                     >
-                                 // Bigger ring
                             <div style={{position: "relative", width: 200, height: 200}}>
                                 <svg width="200" height="200" style={{transform: "rotate(-90deg)"}}>
                                     <circle cx="100" cy="100" r="80" fill="none" stroke="rgba(255,255,255,0.07)"
