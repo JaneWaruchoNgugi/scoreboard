@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "../shared/GlobalStyles.css";
 import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
-// import { CountdownDisplay } from "../shared/CountdownDisplay";
+import { CountdownDisplay } from "../shared/CountdownDisplay";
 import { useFirebaseState } from "../../hooks/useFirebaseState";
 
 interface Props {
@@ -101,7 +101,7 @@ export function ViewerView({ onBack }: Props) {
                 }}
             >
                 <ScoreboardDisplay state={state} showScores={showScores} />
-                {/*<CountdownDisplay state={state} />*/}
+                <CountdownDisplay state={state} muted={true} /> {/* Add muted prop */}
             </div>
         </div>
     );

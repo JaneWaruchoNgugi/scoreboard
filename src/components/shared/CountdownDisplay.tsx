@@ -3,10 +3,11 @@ import { useCountdown } from "../../hooks/useCountdown";
 
 interface Props {
     state: ScoreboardState;
+    muted?: boolean; // Add muted prop
 }
 
-export function CountdownDisplay({ state }: Props) {
-    const { secs, isWarning, isEnd, progress } = useCountdown(state);
+export function CountdownDisplay({ state, muted = false }: Props) {
+    const { secs, isWarning, isEnd, progress } = useCountdown(state, muted); // Pass muted to hook
 
     const circumference = 2 * Math.PI * 54;
     const timerColor = isEnd ? "var(--text3)" : isWarning ? "var(--red)" : "var(--green)";
@@ -40,6 +41,18 @@ export function CountdownDisplay({ state }: Props) {
                             animation: "pulse 1s infinite",
                         }}
                     />
+                )}
+                {/* Add mute indicator */}
+                {muted && (
+                    <div
+                        style={{
+                            fontFamily: "'DM Mono', monospace",
+                            fontSize: 10, color: "var(--text3)", opacity: 0.5,
+                            marginLeft: 4,
+                        }}
+                    >
+                        🔇 MUTED
+                    </div>
                 )}
             </div>
 

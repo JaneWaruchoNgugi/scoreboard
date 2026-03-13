@@ -15,15 +15,20 @@ interface UseCountdownReturn {
 }
 
 /** Drives a live countdown from ScoreboardState fields. */
-export function useCountdown(state: ScoreboardState): UseCountdownReturn {
+export function useCountdown(state: ScoreboardState, externalMuted: boolean = false): UseCountdownReturn {
     const [remaining, setRemaining] = useState(state.timerDuration);
-    const [isMuted, setIsMuted] = useState(!state.timerRunning);
-    const { playSound, pauseAllSounds } = useAudioControl(isMuted);
+    const [isMuted, setIsMuted] = useState(!state.timerRunning || externalMuted);
+    const { playSound, pauseAllSounds } = useAudioControl(isMuted || externalMuted);
 
     const w10 = useRef(false);
     const wEnd = useRef(false);
     const prevRun = useRef(state.timerRunning);
     const prevAt = useRef(state.timerStartedAt);
+
+    // Update muted state when externalMuted changes
+    useEffect(() => {
+        setIsMuted(!state.timerRunning || externalMuted);
+    }, [externalMuted, state.timerRunning]);
 
     // Reset warning flags when timer restarts
     useEffect(() => {
@@ -41,7 +46,7 @@ export function useCountdown(state: ScoreboardState): UseCountdownReturn {
         }
     }, [state.timerRunning, state.timerStartedAt]);
 
-    useEffect(() => setIsMuted(!state.timerRunning), [state.timerRunning]);
+    useEffect(() => setIsMuted(!state.timerRunning || externalMuted), [state.timerRunning, externalMuted]);
     useEffect(() => {
         if (!state.timerRunning) pauseAllSounds();
     }, [state.timerRunning, pauseAllSounds]);
@@ -56,13 +61,17 @@ export function useCountdown(state: ScoreboardState): UseCountdownReturn {
                 (Date.now() - (state.timerStartedAt as number)) / 1000;
             const rem = Math.max(0, state.timerDuration - elapsed);
             setRemaining(rem);
-            if (rem <= 10 && rem > 0 && !w10.current) {
-                w10.current = true;
-                playSound("tenSecTingSnd");
-            }
-            if (rem <= 3 && rem > 0 && !wEnd.current) {
-                wEnd.current = true;
-                playSound("CountDownSnd");
+
+            // Only play sounds if not externally muted
+            if (!externalMuted) {
+                if (rem <= 10 && rem > 0 && !w10.current) {
+                    w10.current = true;
+                    playSound("tenSecTingSnd");
+                }
+                if (rem <= 3 && rem > 0 && !wEnd.current) {
+                    wEnd.current = true;
+                    playSound("CountDownSnd");
+                }
             }
         };
         tick();
@@ -73,6 +82,7 @@ export function useCountdown(state: ScoreboardState): UseCountdownReturn {
         state.timerStartedAt,
         state.timerDuration,
         playSound,
+        externalMuted, // Add externalMuted to dependencies
     ]);
 
     const secs = Math.ceil(remaining);
@@ -86,7 +96,7 @@ export function useCountdown(state: ScoreboardState): UseCountdownReturn {
         isWarning,
         isEnd,
         progress,
-        isMuted,
+        isMuted: isMuted || externalMuted,
         setIsMuted,
         playSound,
         pauseAllSounds,
