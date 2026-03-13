@@ -1,6 +1,6 @@
 import "../shared/GlobalStyles.css";
 import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
-import { CountdownDisplay } from "../shared/CountdownDisplay";
+// import { CountdownDisplay } from "../shared/CountdownDisplay";
 import { useFirebaseState } from "../../hooks/useFirebaseState";
 
 interface Props {
@@ -81,7 +81,7 @@ export function ViewerView({ onBack }: Props) {
                 }}
             >
                 <ScoreboardDisplay state={state} />
-                <CountdownDisplay state={state} />
+                {/*<CountdownDisplay state={state} />*/}
             </div>
         </div>
     );
