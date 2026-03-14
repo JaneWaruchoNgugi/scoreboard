@@ -280,10 +280,10 @@ select:focus {
 
  /* Update existing admin-content for tabbed layout */
  .admin-content-main {
-     display: flex;
-     flex-direction: row;
+     display: grid;
+     /*flex-direction: row;*/
 
-     /*grid-template-columns:repeat(2, 1fr) ;*/
+     grid-template-columns:repeat(1, 1fr) ;
      /*gap: 24px;*/
      /*padding: 24px;*/
      /*min-height: calc(100vh - 140px);*/
@@ -344,7 +344,8 @@ select:focus {
  }
 
  .round-selector {
-     display: flex;
+     display: grid;
+     grid-template-columns: repeat(3,1fr);
      gap: 8px;
  }
 
@@ -1091,11 +1092,12 @@ select:focus {
 
  /* Preview Column - Fixed width, scrolls with content */
  .preview-col {
-     flex: 1 280px;
+     /*flex: 1 1000px;*/
      display: flex;
      flex-direction: column;
-     overflow-y: auto;
-     padding-right: 8px;
+     /*overflow-y: auto;*/
+     /*padding-right: 8px;*/
+     width: 100%;
      scrollbar-width: thin;
      scrollbar-color: var(--border2) var(--surface2);
  }

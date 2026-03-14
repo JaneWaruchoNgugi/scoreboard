@@ -101,7 +101,7 @@ export function ViewerView({ onBack }: Props) {
                 }}
             >
                 <ScoreboardDisplay state={state} showScores={showScores} />
-                <CountdownDisplay state={state} muted={true} /> {/* Add muted prop */}
+                <CountdownDisplay state={state} muted={false} />
             </div>
         </div>
     );

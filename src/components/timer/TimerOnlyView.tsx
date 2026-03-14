@@ -1,7 +1,7 @@
 import stageBg from "../../assets/stage-bg.jpg";
 import bongoQuiz from "../../assets/bongoQuiz.png";
 import "../shared/GlobalStyles.css";
-import {StageCategoryBoard} from "../shared/StageCategoryBoard";
+// import {StageCategoryBoard} from "../shared/StageCategoryBoard";
 import {useFirebaseState} from "../../hooks/useFirebaseState";
 import {useCountdown} from "../../hooks/useCountdown";
 import { useState } from "react";
@@ -33,7 +33,7 @@ export function TimerOnlyView({onBack}: Props) {
     if (state.timerRound === 2) {
         return (
             <div style={{position: "fixed", inset: 0, overflow: "hidden"}}>
-                <StageCategoryBoard state={state}/>
+                {/*<StageCategoryBoard state={state}/>*/}
 
                 {/* Floating HUD */}
                 <div

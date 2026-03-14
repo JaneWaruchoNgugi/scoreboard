@@ -15,9 +15,10 @@ interface Props {
 }
 
 const QUICK_AMOUNTS = [100, 500, 600, 1000, 2000, 5000];
-const NEG_AMOUNTS = [-100, -500, -600, -1000, -2000, -5000];
-const R1_DURATIONS = [80, 90, 95, 100];
-const R2_DURATIONS = [20, 30, 35, 40];
+const NEG_AMOUNTS = [-50,-250,-100, -500, -600, -1000, -2000, -5000];
+const R1_DURATIONS = [150];
+const R2_DURATIONS = [20,25];
+const R3_DURATIONS = [90,60];
 
 export function AdminView({ onBack }: Props) {
     const [state, setState] = useState<ScoreboardState>(DEFAULT_STATE);
@@ -32,7 +33,7 @@ export function AdminView({ onBack }: Props) {
         teamAName: DEFAULT_STATE.teamA.name,
         teamBName: DEFAULT_STATE.teamB.name,
     });
-    const [activeTab, setActiveTab] = useState<"timer" | "categories" | "teams" | "bank">("timer");
+    const [activeTab, setActiveTab] = useState<"timer" | "categories"|"preview" | "teams" | "bank">("teams");
 
     const { playSound, pauseAllSounds } = useAudioControl(isMuted);
     const teamANameRef = useRef<HTMLInputElement | null>(null);
@@ -136,17 +137,20 @@ export function AdminView({ onBack }: Props) {
     const handleScoreChange = (side: TeamSide, val: string) => {
         const v = val === "" ? 0 : parseInt(val, 10);
         if (isNaN(v)) return;
-        const clamped = Math.max(0, Math.min(999999, v));
-        if (side === "A") setState((p) => ({ ...p, teamA: { ...p.teamA, score: clamped } }));
-        else setState((p) => ({ ...p, teamB: { ...p.teamB, score: clamped } }));
+        // Allow negative values, but keep within a reasonable range
+        const clamped = Math.max(-999999, Math.min(999999, v));
+        if (side === "A")
+            setState((p) => ({ ...p, teamA: { ...p.teamA, score: clamped } }));
+        else
+            setState((p) => ({ ...p, teamB: { ...p.teamB, score: clamped } }));
         setSaved(false);
     };
 
     const adjustScore = (amount: number, side: TeamSide) => {
         if (side === "A")
-            setState((p) => ({ ...p, teamA: { ...p.teamA, score: Math.max(0, Math.min(999999, p.teamA.score + amount)) } }));
+            setState((p) => ({ ...p, teamA: { ...p.teamA, score: Math.max(-999999, Math.min(999999, p.teamA.score + amount)) } }));
         else
-            setState((p) => ({ ...p, teamB: { ...p.teamB, score: Math.max(0, Math.min(999999, p.teamB.score + amount)) } }));
+            setState((p) => ({ ...p, teamB: { ...p.teamB, score: Math.max(-999999, Math.min(999999, p.teamB.score + amount)) } }));
         setSaved(false);
     };
 
@@ -261,11 +265,13 @@ export function AdminView({ onBack }: Props) {
             <AdminTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
             <div className="admin-content-main">
-                <PreviewColumn state={state} />
 
+                {activeTab === "preview" && (
+                    <PreviewColumn state={state} />
+                )}
+                {activeTab === "teams" && (
                 <div className="admin-right-col">
                     <div className="timer-categories-container">
-                        {activeTab === "timer" && (
                             <TimerCard
                                 state={state}
                                 categories={state.categories || DEFAULT_CATEGORIES}
@@ -282,49 +288,48 @@ export function AdminView({ onBack }: Props) {
                                 pendingQuestion={pendingQuestion}
                                 setPendingQuestion={setPendingQuestion}
                             />
-                        )}
-
-                        {activeTab === "categories" && (
-                            <CategoriesCard
+                        <div className="bottom-section">
+                            <TeamsCard
                                 state={state}
-                                categories={state.categories || DEFAULT_CATEGORIES}
-                                onPushState={pushState}
-                                pendingQuestion={pendingQuestion}
-                                setPendingQuestion={setPendingQuestion}
-                                // onTimerStop={handleTimerStop}
+                                drafts={drafts}
+                                setDrafts={setDrafts}
+                                onCommitTeamName={commitTeamName}
+                                onScoreChange={handleScoreChange}
+                                onAdjustScore={adjustScore}
+                                onFocus={handleFocus}
+                                teamANameRef={teamANameRef}
+                                teamAScoreRef={teamAScoreRef}
                             />
-                        )}
+                            <PublishFooter
+                                error={error}
+                                saved={saved}
+                                saving={saving}
+                                onPublish={handlePublish}
+                                onReset={handleTimerReset}
+                            />
+                        </div>
+
+
                     </div>
-
-                    {activeTab === "teams" && (
-                        <TeamsCard
-                            state={state}
-                            drafts={drafts}
-                            setDrafts={setDrafts}
-                            onCommitTeamName={commitTeamName}
-                            onScoreChange={handleScoreChange}
-                            onAdjustScore={adjustScore}
-                            onFocus={handleFocus}
-                            teamANameRef={teamANameRef}
-                            teamAScoreRef={teamAScoreRef}
-                        />
-                    )}
-
-                    {activeTab === "bank" && (
-                        <QuestionBankCard
-                            state={state}
-                            onSave={async (nc) => pushState({ ...state, categories: nc, lastUpdated: Date.now() })}
-                        />
-                    )}
-
-                    <PublishFooter
-                        error={error}
-                        saved={saved}
-                        saving={saving}
-                        onPublish={handlePublish}
-                        onReset={handleTimerReset}
-                    />
                 </div>
+                )}
+                {activeTab === "categories" && (
+                    <CategoriesCard
+                        state={state}
+                        categories={state.categories || DEFAULT_CATEGORIES}
+                        onPushState={pushState}
+                        pendingQuestion={pendingQuestion}
+                        setPendingQuestion={setPendingQuestion}
+                        // onTimerStop={handleTimerStop}
+                    />
+                )}
+                {activeTab === "bank" && (
+                    <QuestionBankCard
+                        state={state}
+                        onSave={async (nc) => pushState({ ...state, categories: nc, lastUpdated: Date.now() })}
+                    />
+                )}
+
             </div>
         </div>
     );
@@ -362,16 +367,16 @@ function AdminTopBar({ onBack, isMuted, audioEnabled, onTestSound }: TopBarProps
 }
 
 interface TabsProps {
-    activeTab: "timer" | "categories" | "teams" | "bank";
-    onTabChange: (tab: "timer" | "categories" | "teams" | "bank") => void;
+    activeTab: "timer" | "categories" | "teams" | "bank"|"preview";
+    onTabChange: (tab: "timer" | "categories" | "teams" | "bank"|"preview") => void;
 }
 
 function AdminTabs({ activeTab, onTabChange }: TabsProps) {
     const tabs = [
-        { id: "timer" as const, icon: "⏱️", label: "TIMER" },
-        { id: "categories" as const, icon: "📋", label: "CATEGORIES" },
+        { id: "preview" as const, icon: "⏱️", label: "Preview Scores" },
+        // { id: "categories" as const, icon: "📋", label: "CATEGORIES" },
         { id: "teams" as const, icon: "👥", label: "TEAMS" },
-        { id: "bank" as const, icon: "📚", label: "BANK" }
+        // { id: "bank" as const, icon: "📚", label: "BANK" }
     ];
 
     return (
@@ -430,8 +435,8 @@ interface TimerCardProps {
 
 function TimerCard({
                        state,
-                       categories,
-                       onPushState,
+                       // categories,
+                       // onPushState,
                        onSelectRound,
                        onSelectDuration,
                        onTimerStart,
@@ -441,8 +446,8 @@ function TimerCard({
                        timerIsEnd,
                        countdownCls,
                        onFocus,
-                       pendingQuestion,
-                       setPendingQuestion
+                       // pendingQuestion,
+                       // setPendingQuestion
                    }: TimerCardProps) {
     const previewSecs = Math.ceil(previewRemaining);
     const formatTime = (seconds: number) => seconds <= 0 ? "0" : seconds.toString();
@@ -485,11 +490,11 @@ function TimerCard({
 
                 {state.timerRound === 2 && (
                     <RoundTwoPanel
-                        state={state}
-                        categories={categories}
-                        onPushState={onPushState}
-                        pendingQuestion={pendingQuestion}
-                        setPendingQuestion={setPendingQuestion}
+                        // state={state}
+                        // categories={categories}
+                        // onPushState={onPushState}
+                        // pendingQuestion={pendingQuestion}
+                        // setPendingQuestion={setPendingQuestion}
                         // onTimerStop={onTimerStop}
                     />
                 )}
@@ -508,7 +513,7 @@ function RoundSelector({ currentRound, onSelectRound }: RoundSelectorProps) {
         <div>
             <label className="field-label">SELECT ROUND</label>
             <div className="round-selector">
-                {[1, 2].map((r) => (
+                {[1, 2,3].map((r) => (
                     <button
                         key={r}
                         className={`btn round-btn ${currentRound === r ? "round-btn--active" : "round-btn--idle"}`}
@@ -531,7 +536,7 @@ interface DurationSelectorProps {
 }
 
 function DurationSelector({ round, currentDuration, onSelectDuration, onFocus, isRunning }: DurationSelectorProps) {
-    const durations = round === 1 ? R1_DURATIONS : R2_DURATIONS;
+    const durations = round === 1 ? R1_DURATIONS :( round===2 ? R2_DURATIONS: R3_DURATIONS);
 
     return (
         <>
@@ -652,75 +657,77 @@ function TimerControls({ isRunning, hasStarted, isEnd, onStart, onStop, onReset 
     );
 }
 
-interface RoundTwoPanelProps {
-    state: ScoreboardState;
-    categories: Category[];
-    onPushState: (state: ScoreboardState) => Promise<void>;
-    pendingQuestion: {
-        categoryId: string;
-        question: string;
-        answer: string;
-    } | null;
-    setPendingQuestion: React.Dispatch<React.SetStateAction<{
-        categoryId: string;
-        question: string;
-        answer: string;
-    } | null>>;
-    // onTimerStop: () => Promise<void>;
-}
+// interface RoundTwoPanelProps {
+//     state: ScoreboardState;
+//     categories: Category[];
+//     onPushState: (state: ScoreboardState) => Promise<void>;
+//     pendingQuestion: {
+//         categoryId: string;
+//         question: string;
+//         answer: string;
+//     } | null;
+//     setPendingQuestion: React.Dispatch<React.SetStateAction<{
+//         categoryId: string;
+//         question: string;
+//         answer: string;
+//     } | null>>;
+//     // onTimerStop: () => Promise<void>;
+// }
 
-function RoundTwoPanel({
-                           state,
-                           categories,
-                           onPushState,
-                           pendingQuestion,
-                           setPendingQuestion,
+function RoundTwoPanel(
+    // {
+                           // state,
+                           // categories,
+                           // onPushState,
+                           // pendingQuestion,
+                           // setPendingQuestion,
                            // onTimerStop
-                       }: RoundTwoPanelProps) {
+                       // }: RoundTwoPanelProps
+) {
     return (
         <div className="round-two-panel">
             <div className="round-two-panel__divider" />
-            <label className="field-label" style={{ color: "var(--green)" }}>ROUND 2 — CATEGORY BOARD</label>
+            {/*<label className="field-label" style={{ color: "var(--green)" }}>ROUND 2 — CATEGORY BOARD</label>*/}
 
-            <CategoryGrid
-                categories={categories}
-                activeCategory={state.activeCategory}
-                onSelectCategory={async (catId: string) => {
-                    await onPushState({
-                        ...state,
-                        activeCategory: catId === state.activeCategory ? null : catId,
-                        showAnswer: false,
-                        lastUpdated: Date.now()
-                    });
-                }}
-            />
+            {/*<CategoryGrid*/}
+            {/*    categories={categories}*/}
+            {/*    activeCategory={state.activeCategory}*/}
+            {/*    onSelectCategory={async (catId: string) => {*/}
+            {/*        await onPushState({*/}
+            {/*            ...state,*/}
+            {/*            activeCategory: catId === state.activeCategory ? null : catId,*/}
+            {/*            showAnswer: false,*/}
+            {/*            lastUpdated: Date.now()*/}
+            {/*        });*/}
+            {/*    }}*/}
+            {/*/>*/}
 
-            {state.activeCategory && (
-                <ActiveCategoryPanel
-                    state={state}
-                    categories={categories}
-                    onPushState={onPushState}
-                    pendingQuestion={pendingQuestion}
-                    setPendingQuestion={setPendingQuestion}
-                    // onTimerStop={onTimerStop}
-                />
-            )}
+            {/*{state.activeCategory && (*/}
+            {/*    <ActiveCategoryPanel*/}
+            {/*        state={state}*/}
+            {/*        categories={categories}*/}
+            {/*        onPushState={onPushState}*/}
+            {/*        pendingQuestion={pendingQuestion}*/}
+            {/*        setPendingQuestion={setPendingQuestion}*/}
+            {/*        // onTimerStop={onTimerStop}*/}
+            {/*    />*/}
+            {/*)}*/}
 
-            <button
-                className="btn round-two-panel__reset"
-                onClick={async () => {
-                    await onPushState({
-                        ...state,
-                        categories: DEFAULT_CATEGORIES,
-                        activeCategory: null,
-                        showAnswer: false,
-                        lastUpdated: Date.now()
-                    });
-                    setPendingQuestion(null);
-                }}
-            >
-                RESET ALL CATEGORIES
-            </button>
+            {/*<button*/}
+            {/*    className="btn round-two-panel__reset"*/}
+            {/*    onClick={async () => {*/}
+            {/*        await onPushState({*/}
+            {/*            ...state,*/}
+            {/*            categories: DEFAULT_CATEGORIES,*/}
+            {/*            activeCategory: null,*/}
+            {/*            showAnswer: false,*/}
+            {/*            lastUpdated: Date.now()*/}
+            {/*        });*/}
+            {/*        setPendingQuestion(null);*/}
+            {/*    }}*/}
+            {/*>*/}
+            {/*    RESET ALL CATEGORIES*/}
+            {/*</button>*/}
         </div>
     );
 }
