@@ -1,8 +1,10 @@
+// ViewerView.tsx
 import { useState } from "react";
 import "../shared/GlobalStyles.css";
 import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
 import { CountdownDisplay } from "../shared/CountdownDisplay";
 import { useFirebaseState } from "../../hooks/useFirebaseState";
+import {QuestionsPanel} from "./QuestionsPanel.tsx";
 
 interface Props {
     onBack: () => void;
@@ -19,10 +21,18 @@ const STATUS_LABEL: Record<string, string> = {
     offline: "OFFLINE",
 };
 
+type Tab = "scores" | "questions";
+
 export function ViewerView({ onBack }: Props) {
     const { state, status } = useFirebaseState();
-    const [showScores, setShowScores] = useState(false);
+    const [activeTab, setActiveTab] = useState<Tab>("scores");
     const color = STATUS_COLOR[status];
+
+    // Derived directly from Firebase — updates live when admin changes the round
+    const round: 1 | 2 | 3 =
+        state?.timerRound === 2 ? 2
+            : state?.timerRound === 3 ? 3
+                : 1;
 
     return (
         <div
@@ -33,8 +43,7 @@ export function ViewerView({ onBack }: Props) {
                 display: "flex", flexDirection: "column", alignItems: "center",
             }}
         >
-
-            {/* Top bar */}
+            {/* ── Top bar ── */}
             <div
                 style={{
                     width: "100%", maxWidth: 1200,
@@ -53,24 +62,7 @@ export function ViewerView({ onBack }: Props) {
                     ← Back
                 </button>
 
-                {/* View Scores Button */}
-                <button
-                    className="btn"
-                    onClick={() => setShowScores(!showScores)}
-                    style={{
-                        background: showScores ? "var(--surface2)" : "var(--primary)",
-                        color: showScores ? "var(--text2)" : "white",
-                        padding: "10px 20px",
-                        fontSize: 13,
-                        border: "1px solid var(--border)",
-                        transition: "all 0.2s ease",
-                        cursor: "pointer",
-                        minWidth: "120px",
-                    }}
-                >
-                    {showScores ? "HIDE SCORES 🔒" : "VIEW SCORES 👁️"}
-                </button>
-
+                {/* Status pill */}
                 <div
                     style={{
                         display: "flex", alignItems: "center", gap: 8,
@@ -91,7 +83,7 @@ export function ViewerView({ onBack }: Props) {
                 </div>
             </div>
 
-            {/* Content */}
+            {/* ── Main content ── */}
             <div
                 className="fade-up"
                 style={{
@@ -100,8 +92,55 @@ export function ViewerView({ onBack }: Props) {
                     display: "flex", flexDirection: "column", gap: 16,
                 }}
             >
-                <ScoreboardDisplay state={state} showScores={showScores} />
+                {/* ── Timer — always visible on every tab ── */}
                 <CountdownDisplay state={state} muted={false} />
+
+                {/* ── Tab switcher ── */}
+                <div
+                    style={{
+                        display: "flex",
+                        background: "var(--surface)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 12,
+                        padding: 4,
+                        gap: 4,
+                        alignSelf: "center",
+                        width: "100%",
+                        maxWidth: 400,
+                    }}
+                >
+                    {(["scores", "questions"] as Tab[]).map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            style={{
+                                flex: 1,
+                                background: activeTab === tab ? "var(--primary)" : "transparent",
+                                color: activeTab === tab ? "white" : "var(--text3)",
+                                border: "none",
+                                borderRadius: 8,
+                                padding: "10px 0",
+                                fontFamily: "'DM Mono', monospace",
+                                fontSize: 11,
+                                letterSpacing: "0.15em",
+                                cursor: "pointer",
+                                transition: "all 0.18s ease",
+                            }}
+                        >
+                            {tab === "scores" ? "📊 SCORES" : "📋 QUESTIONS"}
+                        </button>
+                    ))}
+                </div>
+
+                {/* ── Tab content ── */}
+                {activeTab === "scores" && (
+                    <ScoreboardDisplay state={state} showScores={true} />
+                )}
+
+                {activeTab === "questions" && (
+                    // round is fully controlled by Firebase — no local state in QuestionsPanel
+                    <QuestionsPanel round={state.timerRound} showAnswers={false} />
+                )}
             </div>
         </div>
     );
