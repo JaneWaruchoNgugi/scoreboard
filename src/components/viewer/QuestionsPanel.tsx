@@ -3,7 +3,7 @@ import { useQuestions } from "../../hooks/useQuestions.ts";
 
 interface Props {
     /** Controlled by parent (Firebase state.timerRound) — no internal state. */
-    round: 1 | 2 | 3;
+    round:number;
     showAnswers?: boolean;
 }
 

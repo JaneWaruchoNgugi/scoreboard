@@ -28,12 +28,6 @@ export function ViewerView({ onBack }: Props) {
     const [activeTab, setActiveTab] = useState<Tab>("scores");
     const color = STATUS_COLOR[status];
 
-    // Derived directly from Firebase — updates live when admin changes the round
-    const round: 1 | 2 | 3 =
-        state?.timerRound === 2 ? 2
-            : state?.timerRound === 3 ? 3
-                : 1;
-
     return (
         <div
             style={{
