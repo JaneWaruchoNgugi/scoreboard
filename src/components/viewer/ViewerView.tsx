@@ -133,7 +133,7 @@ export function ViewerView({ onBack }: Props) {
 
                 {activeTab === "questions" && (
                     // round is fully controlled by Firebase — no local state in QuestionsPanel
-                    <QuestionsPanel round={state.timerRound} showAnswers={false} />
+                    <QuestionsPanel round={state.timerRound} showAnswers={true} />
                 )}
             </div>
         </div>
