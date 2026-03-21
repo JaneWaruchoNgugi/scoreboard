@@ -81,7 +81,7 @@ export function ViewerView({ onBack }: Props) {
             <div
                 className="fade-up"
                 style={{
-                    width: "100%", maxWidth: 1200,
+                    width: "100%", maxWidth: 1800,
                     padding: "0 24px 40px",
                     display: "flex", flexDirection: "column", gap: 16,
                 }}
