@@ -14,7 +14,6 @@ export interface Category {
 }
 
 // ── ROUND 1 ── 20 general-knowledge questions ──────────────────────────────
-// ── ROUND 1 ── 20 general-knowledge questions ──────────────────────────────
 const ROUND_1_QUESTIONS: Question[] = [
     { id: 1,  question: "My mothers mother is my?",                               answer: "Grand Mother" },
     { id: 2,  question: "Who was swallowed by a big fish?",                       answer: "Jonah" },
@@ -36,6 +35,18 @@ const ROUND_1_QUESTIONS: Question[] = [
     { id: 18, question: "Kenya's Fastest marathon runner?",                       answer: "Eliud Kipchoge" },
     { id: 19, question: "What color is Gor Mahia’s kit?",                         answer: "Green" },
     { id: 20, question: "What is the chemical symbol for water?",                 answer: "H20" },
+    { id: 21, question: "Which joint connects the foot to the leg?",                 answer: "Ankle" },
+    { id: 22, question: "Kenya’s national animal?",                 answer: "Lion" },
+    { id: 23, question: "What is the boiling point of water in degrees Celsius?",                 answer: "100°C" },
+    { id: 24, question: "How many counties does Kenya have?",                 answer: "47" },
+    { id: 25, question: "What gas do plants use for photosynthesis? ",                 answer: "CO₂" },
+    { id: 26, question: "Largest lake in Kenya?",                 answer: "Lake Turkana" },
+    { id: 27, question: "Who succeeded Moses as leader of the Israelites?",                 answer: "Joshua" },
+    { id: 28, question: "What part of the plant conducts photosynthesis?",                 answer: "Leaves" },
+    { id: 29, question: "Which sport is Kenya best known for globally? ",                 answer: "Athletics" },
+    { id: 30, question: "Which Mode of payment is most common in Kenya? ",                 answer: "Mpesa" },
+    { id: 31, question: "Which liquids are used in a thermometer?",                 answer: "Mercury/ Alcohol" },
+
 ];
 
 const ROUND_2_CATEGORIES: Category[] = [
@@ -222,11 +233,12 @@ const ROUND_3_QUESTIONS: Question[] = [
     { id: 1, question: "Recite the 1st line of Kenya's loyalty pledge ?", answer: "I pledge my loyalty to the President and Nation of Kenya." },
     { id: 2, question: "In volleyball, how many players are on court for one team?", answer: "6" },
     { id: 3, question: "Which Kenyan athlete won Olympic gold in the men’s 800m in Rio 2016?", answer: "David Rudisha" },
-    { id: 4, question: "Which county is known as the home of champions?", answer: "Elgeyo Marakwet" },
-    { id: 5, question: "What is the name of Kenya’s national anthem?", answer: "Ee Mungu Nguvu Yetu" },
-    { id: 6, question: "Which African country has the shape of a horn?", answer: "Somalia" },
-    { id: 7, question: "Which Old Testament figure wrestled with God?", answer: "Jacob" },
-    { id: 8, question: "Youngest son of Jacob?", answer: "Benjamin" },
+    { id: 4, question: "What are the big 5 wild animals in Kenya?", answer: "lion, leopard, African buffalo, elephant, and rhinoceros" },
+    { id: 5, question: "Which county is known as the home of champions?", answer: "Elgeyo Marakwet" },
+    { id: 6, question: "What is the name of Kenya’s national anthem?", answer: "Ee Mungu Nguvu Yetu" },
+    { id: 7, question: "Which African country has the shape of a horn?", answer: "Somalia" },
+    { id: 8, question: "Which Old Testament figure wrestled with God?", answer: "Jacob" },
+    { id: 9, question: "Youngest son of Jacob?", answer: "Benjamin" },
 ];
 
 // ── Hook ────────────────────────────────────────────────────────────────────

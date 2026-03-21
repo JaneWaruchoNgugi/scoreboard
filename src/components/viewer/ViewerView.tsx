@@ -98,7 +98,6 @@ export function ViewerView({ onBack }: Props) {
                         width: "100%",
                         maxWidth: 400,
                         position: "sticky",
-
                         boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
                     }}
                 >
