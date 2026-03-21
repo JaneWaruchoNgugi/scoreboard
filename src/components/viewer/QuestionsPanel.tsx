@@ -160,7 +160,7 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
                                             background: "var(--bg)",
                                             cursor: "pointer",
                                             transition: "background 0.2s",
-                                            ":hover": { background: "var(--surface3)" }, // will need a class for hover
+                                            // ":hover": { background: "var(--surface3)" }, // will need a class for hover
                                         }}
                                     >
                                         <span style={{ fontSize: 18 }}>{cat.emoji}</span>
