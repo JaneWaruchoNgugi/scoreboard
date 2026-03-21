@@ -219,12 +219,14 @@ const ROUND_2_CATEGORIES: Category[] = [
 
 // ── ROUND 3 ── 6 general questions ─────────────────────────────────────────
 const ROUND_3_QUESTIONS: Question[] = [
-    { id: 1, question: "What is the currency of Japan?",                             answer: "Yen" },
-    { id: 2, question: "How many continents are there on Earth?",                    answer: "7" },
-    { id: 3, question: "Which planet is the largest in our solar system?",           answer: "Jupiter" },
-    { id: 4, question: "What is the longest bone in the human body?",               answer: "Femur" },
-    { id: 5, question: "Who invented the telephone?",                                answer: "Alexander Graham Bell" },
-    { id: 6, question: "What is the speed of light (approximately)?",               answer: "300,000 km/s" },
+    { id: 1, question: "Recite the 1st line of Kenya's loyalty pledge ?", answer: "I pledge my loyalty to the President and Nation of Kenya." },
+    { id: 2, question: "In volleyball, how many players are on court for one team?", answer: "6" },
+    { id: 3, question: "Which Kenyan athlete won Olympic gold in the men’s 800m in Rio 2016?", answer: "David Rudisha" },
+    { id: 4, question: "Which county is known as the home of champions?", answer: "Elgeyo Marakwet" },
+    { id: 5, question: "What is the name of Kenya’s national anthem?", answer: "Ee Mungu Nguvu Yetu" },
+    { id: 6, question: "Which African country has the shape of a horn?", answer: "Somalia" },
+    { id: 7, question: "Which Old Testament figure wrestled with God?", answer: "Jacob" },
+    { id: 8, question: "Youngest son of Jacob?", answer: "Benjamin" },
 ];
 
 // ── Hook ────────────────────────────────────────────────────────────────────
