@@ -1,17 +1,16 @@
 // shared/QuestionsPanel.tsx
 import { useQuestions } from "../../hooks/useQuestions.ts";
 import { useFirebaseState } from "../../hooks/useFirebaseState";
-import {CountdownDisplay} from "../shared/CountdownDisplay.tsx";
+import { CountdownDisplay } from "../shared/CountdownDisplay.tsx";
 
 interface Props {
-    /** Controlled by parent (Firebase state.timerRound) — no internal state. */
     round: number;
     showAnswers?: boolean;
 }
 
 export function QuestionsPanel({ round, showAnswers = false }: Props) {
     const { round1, round2, round3 } = useQuestions();
-    const { state } = useFirebaseState(); // get full state for timer
+    const { state } = useFirebaseState();
 
     const countLabel = () => {
         if (round === 1) return `${round1.length} QUESTIONS`;
@@ -20,8 +19,19 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
     };
 
     return (
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden" }}>
-            {/* Panel header */}
+        <div
+            style={{
+                background: "var(--surface)",
+                border: "1px solid var(--border)",
+                borderRadius: 16,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                height: "100%",          // Assumes parent has defined height (e.g., 100vh, 100%, or flex: 1)
+                maxHeight: "100vh",      // Fallback to viewport height if parent doesn't constrain
+            }}
+        >
+            {/* Header – not sticky */}
             <div
                 style={{
                     display: "flex",
@@ -32,13 +42,13 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
                     background: "var(--surface2)",
                     flexWrap: "wrap",
                     gap: 12,
+                    flexShrink: 0,
                 }}
             >
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.15em", color: "var(--text3)" }}>
                     QUESTIONS
                 </span>
 
-                {/* Round badge — read-only, driven by admin */}
                 <div style={{ display: "flex", background: "var(--bg)", borderRadius: 8, padding: 3, border: "1px solid var(--border)", gap: 2 }}>
                     {([1, 2, 3] as const).map((r) => (
                         <div
@@ -63,149 +73,166 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
                 </span>
             </div>
 
-            {/* Timer display */}
-            <div style={{ padding: "12px 20px", borderBottom: "1px solid var(--border)", background: "var(--bg)" }}>
-                <CountdownDisplay state={state} muted={false} />
-            </div>
-
-            {/* Round 1: 20 questions */}
-            {round === 1 && (
+            {/* Scrollable content area – sticky timer inside */}
+            <div
+                style={{
+                    flex: 1,
+                    overflowY: "auto",
+                    display: "flex",
+                    flexDirection: "column",
+                }}
+            >
+                {/* Sticky timer */}
                 <div
                     style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-                        gap: 1,
-                        background: "var(--border)",
+                        position: "sticky",
+                        top: 0,
+                        zIndex: 10,
+                        background: "var(--bg)",
+                        padding: "12px 20px",
+                        borderBottom: "1px solid var(--border)",
                     }}
                 >
-                    {round1.map((q) => (
-                        <QuestionRow key={q.id} q={q} showAnswers={showAnswers} />
-                    ))}
+                    <CountdownDisplay state={state} muted={false} />
                 </div>
-            )}
 
-            {/* Round 2: category cards */}
-            {round === 2 && (
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                        gap: 16,
-                        padding: 16,
-                    }}
-                >
-                    {round2.map((cat) => (
-                        <div
-                            key={cat.id}
-                            style={{
-                                background: "var(--surface2)",
-                                border: "1px solid var(--border)",
-                                borderRadius: 12,
-                                overflow: "hidden",
-                            }}
-                        >
+                {/* Questions content */}
+                {round === 1 && (
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+                            gap: 1,
+                            background: "var(--border)",
+                        }}
+                    >
+                        {round1.map((q) => (
+                            <QuestionRow key={q.id} q={q} showAnswers={showAnswers} />
+                        ))}
+                    </div>
+                )}
+
+                {round === 2 && (
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                            gap: 16,
+                            padding: 16,
+                        }}
+                    >
+                        {round2.map((cat) => (
                             <div
+                                key={cat.id}
                                 style={{
-                                    padding: "12px 16px",
-                                    borderBottom: "1px solid var(--border)",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 8,
-                                    background: "var(--bg)",
+                                    background: "var(--surface2)",
+                                    border: "1px solid var(--border)",
+                                    borderRadius: 12,
+                                    overflow: "hidden",
                                 }}
                             >
-                                <span style={{ fontSize: 18 }}>{cat.emoji}</span>
-                                <span
+                                <div
                                     style={{
-                                        fontFamily: "'DM Mono', monospace",
-                                        fontSize: 11,
-                                        letterSpacing: "0.12em",
-                                        color: "var(--text2)",
-                                        fontWeight: 600,
+                                        padding: "12px 16px",
+                                        borderBottom: "1px solid var(--border)",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                        background: "var(--bg)",
                                     }}
                                 >
-                                    {cat.name.toUpperCase()}
-                                </span>
-                            </div>
-                            <div style={{ padding: "8px 0" }}>
-                                {cat.questions.map((q) => (
-                                    <div
-                                        key={q.id}
+                                    <span style={{ fontSize: 18 }}>{cat.emoji}</span>
+                                    <span
                                         style={{
-                                            padding: "10px 16px",
-                                            display: "flex",
-                                            gap: 10,
-                                            alignItems: "flex-start",
-                                            borderBottom:
-                                                q.id < cat.questions.length
-                                                    ? "1px solid var(--border)"
-                                                    : "none",
+                                            fontFamily: "'DM Mono', monospace",
+                                            fontSize: 11,
+                                            letterSpacing: "0.12em",
+                                            color: "var(--text2)",
+                                            fontWeight: 600,
                                         }}
                                     >
-                                        <span
+                                        {cat.name.toUpperCase()}
+                                    </span>
+                                </div>
+                                <div style={{ padding: "8px 0" }}>
+                                    {cat.questions.map((q) => (
+                                        <div
+                                            key={q.id}
                                             style={{
-                                                flexShrink: 0,
-                                                fontFamily: "'DM Mono', monospace",
-                                                fontSize: 10,
-                                                color: "var(--primary)",
-                                                marginTop: 2,
-                                                minWidth: 16,
+                                                padding: "10px 16px",
+                                                display: "flex",
+                                                gap: 10,
+                                                alignItems: "flex-start",
+                                                borderBottom:
+                                                    q.id < cat.questions.length
+                                                        ? "1px solid var(--border)"
+                                                        : "none",
                                             }}
                                         >
-                                            Q{q.id}
-                                        </span>
-                                        <div style={{ flex: 1 }}>
-                                            <p
+                                            <span
                                                 style={{
-                                                    margin: 0,
-                                                    fontSize: 13,
-                                                    color: "var(--text1)",
-                                                    lineHeight: 1.5,
+                                                    flexShrink: 0,
+                                                    fontFamily: "'DM Mono', monospace",
+                                                    fontSize: 10,
+                                                    color: "var(--primary)",
+                                                    marginTop: 2,
+                                                    minWidth: 16,
                                                 }}
                                             >
-                                                {q.question}
-                                            </p>
-                                            {showAnswers && (
+                                                Q{q.id}
+                                            </span>
+                                            <div style={{ flex: 1 }}>
                                                 <p
                                                     style={{
-                                                        margin: "3px 0 0",
-                                                        fontSize: 11,
-                                                        color: "var(--green)",
-                                                        fontFamily: "'DM Mono', monospace",
+                                                        margin: 0,
+                                                        fontSize: 13,
+                                                        color: "var(--text1)",
+                                                        lineHeight: 1.5,
                                                     }}
                                                 >
-                                                    ✓ {q.answer}
+                                                    {q.question}
                                                 </p>
-                                            )}
+                                                {showAnswers && (
+                                                    <p
+                                                        style={{
+                                                            margin: "3px 0 0",
+                                                            fontSize: 11,
+                                                            color: "var(--green)",
+                                                            fontFamily: "'DM Mono', monospace",
+                                                        }}
+                                                    >
+                                                        ✓ {q.answer}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
-            )}
+                        ))}
+                    </div>
+                )}
 
-            {/* Round 3: 6 general questions */}
-            {round === 3 && (
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-                        gap: 1,
-                        background: "var(--border)",
-                    }}
-                >
-                    {round3.map((q) => (
-                        <QuestionRow key={q.id} q={q} showAnswers={showAnswers} />
-                    ))}
-                </div>
-            )}
+                {round === 3 && (
+                    <div
+                        style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+                            gap: 1,
+                            background: "var(--border)",
+                        }}
+                    >
+                        {round3.map((q) => (
+                            <QuestionRow key={q.id} q={q} showAnswers={showAnswers} />
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
 
-// ── Shared row for Round 1 and Round 3 ────────────────────────────────────
+// QuestionRow component remains unchanged
 function QuestionRow({
                          q,
                          showAnswers,
