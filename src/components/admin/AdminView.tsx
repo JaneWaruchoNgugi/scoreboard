@@ -17,7 +17,7 @@ interface Props {
 const QUICK_AMOUNTS = [50,100,250, 500, 600, 1000, 2000];
 const NEG_AMOUNTS = [-50,-100,-250, -500, -600, -1000, -2000];
 const R1_DURATIONS = [150];
-const R2_DURATIONS = [20,25];
+const R2_DURATIONS = [10, 20,25];
 const R3_DURATIONS = [90,60];
 
 export function AdminView({ onBack }: Props) {
