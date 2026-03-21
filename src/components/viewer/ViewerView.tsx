@@ -1,10 +1,9 @@
-// ViewerView.tsx
 import { useState } from "react";
 import "../shared/GlobalStyles.css";
 import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
 // import { CountdownDisplay } from "../shared/CountdownDisplay";
 import { useFirebaseState } from "../../hooks/useFirebaseState";
-import {QuestionsPanel} from "./QuestionsPanel.tsx";
+import { QuestionsPanel } from "./QuestionsPanel.tsx";
 
 interface Props {
     onBack: () => void;
@@ -86,14 +85,11 @@ export function ViewerView({ onBack }: Props) {
                     display: "flex", flexDirection: "column", gap: 16,
                 }}
             >
-                {/* ── Timer — always visible on every tab ── */}
-                {/*<CountdownDisplay state={state} muted={false} />*/}
-
-                {/* ── Tab switcher ── */}
+                {/* ── Tab switcher (improved styling) ── */}
                 <div
                     style={{
                         display: "flex",
-                        background: "var(--surface)",
+                        background: "var(--surface2)",
                         border: "1px solid var(--border)",
                         borderRadius: 12,
                         padding: 4,
@@ -101,6 +97,7 @@ export function ViewerView({ onBack }: Props) {
                         alignSelf: "center",
                         width: "100%",
                         maxWidth: 400,
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
                     }}
                 >
                     {(["scores", "questions"] as Tab[]).map((tab) => (
@@ -109,17 +106,36 @@ export function ViewerView({ onBack }: Props) {
                             onClick={() => setActiveTab(tab)}
                             style={{
                                 flex: 1,
-                                background: activeTab === tab ? "var(--primary)" : "transparent",
-                                color: activeTab === tab ? "white" : "var(--text3)",
+                                background: activeTab === tab
+                                    ? "var(--primary)"
+                                    : "transparent",
+                                color: activeTab === tab
+                                    ? "white"
+                                    : "var(--text2)",
                                 border: "none",
                                 borderRadius: 8,
-                                padding: "10px 0",
+                                padding: "12px 0",
                                 fontFamily: "'DM Mono', monospace",
-                                fontSize: 11,
-                                letterSpacing: "0.15em",
+                                fontSize: 12,
+                                letterSpacing: "0.12em",
+                                fontWeight: activeTab === tab ? 600 : 500,
                                 cursor: "pointer",
-                                transition: "all 0.18s ease",
+                                transition: "all 0.2s ease",
+                                // Hover effect for inactive tabs
+                                ...(activeTab !== tab && {
+                                    ":hover": {
+                                        background: "var(--surface3)",
+                                        color: "var(--text1)",
+                                    },
+                                }),
+                                // Active tab shadow
+                                ...(activeTab === tab && {
+                                    boxShadow: "0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
+                                }),
                             }}
+                            // To make hover work with inline styles, we'd need to add a class or use CSS modules.
+                            // Since we're using inline styles, we'll add a className instead for hover effects.
+                            // Let's add a className to handle hover properly.
                         >
                             {tab === "scores" ? "📊 SCORES" : "📋 QUESTIONS"}
                         </button>
@@ -131,13 +147,9 @@ export function ViewerView({ onBack }: Props) {
                     <ScoreboardDisplay state={state} showScores={true} />
                 )}
                 {activeTab === "questions" && (
-                    // round is fully controlled by Firebase — no local state in QuestionsPanel
                     <QuestionsPanel round={state.timerRound} showAnswers={true} />
                 )}
-
-
             </div>
-
         </div>
     );
 }
