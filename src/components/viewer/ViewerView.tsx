@@ -2,7 +2,7 @@
 import { useState } from "react";
 import "../shared/GlobalStyles.css";
 import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
-import { CountdownDisplay } from "../shared/CountdownDisplay";
+// import { CountdownDisplay } from "../shared/CountdownDisplay";
 import { useFirebaseState } from "../../hooks/useFirebaseState";
 import {QuestionsPanel} from "./QuestionsPanel.tsx";
 
@@ -87,7 +87,7 @@ export function ViewerView({ onBack }: Props) {
                 }}
             >
                 {/* ── Timer — always visible on every tab ── */}
-                <CountdownDisplay state={state} muted={false} />
+                {/*<CountdownDisplay state={state} muted={false} />*/}
 
                 {/* ── Tab switcher ── */}
                 <div
@@ -130,12 +130,14 @@ export function ViewerView({ onBack }: Props) {
                 {activeTab === "scores" && (
                     <ScoreboardDisplay state={state} showScores={true} />
                 )}
-
                 {activeTab === "questions" && (
                     // round is fully controlled by Firebase — no local state in QuestionsPanel
                     <QuestionsPanel round={state.timerRound} showAnswers={true} />
                 )}
+
+
             </div>
+
         </div>
     );
 }
