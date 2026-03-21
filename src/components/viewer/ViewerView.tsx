@@ -110,9 +110,12 @@ export function ViewerView({ onBack }: Props) {
                                     ? "var(--primary)"
                                     : "transparent",
                                 color: activeTab === tab
-                                    ? "white"
+                                    ? "#00e5a0"
                                     : "var(--text2)",
-                                border: "none",
+                                border:`2px solid ${activeTab === tab
+                                    ? "#00e5a0"
+                                    : "transparent"
+                                }`  ,
                                 borderRadius: 8,
                                 padding: "12px 0",
                                 fontFamily: "'DM Mono', monospace",
