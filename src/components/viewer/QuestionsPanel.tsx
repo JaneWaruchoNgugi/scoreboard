@@ -147,7 +147,7 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
 
             {/* Round 1 questions */}
             {round === 1 && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 1, background: "var(--border)" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "var(--border)" }}>
                     {round1.map((q) => (
                         <QuestionRow key={q.id} q={q} showAnswers={showAnswers} />
                     ))}
