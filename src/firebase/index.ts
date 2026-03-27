@@ -44,6 +44,32 @@ export function subscribeToState(
     return unsubscribe;
 }
 
+// ─── Score History ─────────────────────────────────────────────────────────
+
+export interface ScoreRecord {
+    timestamp: number;
+    teamAName: string;
+    teamBName: string;
+    teamAScore: number;
+    teamBScore: number;
+    period: string;
+}
+
+export async function appendScoreRecord(record: ScoreRecord): Promise<void> {
+    const snap = await get(ref(db, "scoreboard/scoreHistory"));
+    const existing: ScoreRecord[] = snap.exists() ? snap.val() : [];
+    await set(ref(db, "scoreboard/scoreHistory"), [...existing, record]);
+}
+
+export async function fetchScoreHistory(): Promise<ScoreRecord[]> {
+    const snap = await get(ref(db, "scoreboard/scoreHistory"));
+    return snap.exists() ? snap.val() : [];
+}
+
+export async function clearScoreHistory(): Promise<void> {
+    await set(ref(db, "scoreboard/scoreHistory"), []);
+}
+
 // ─── Questions CRUD ────────────────────────────────────────────────────────
 
 export const QUESTIONS_REF = "scoreboard/questions";

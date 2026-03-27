@@ -39,7 +39,7 @@ export function ViewerView({ onBack }: Props) {
             {/* ── Top bar ── */}
             <div
                 style={{
-                    width: "100%", maxWidth: 1200,
+                    width: "100%",
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     padding: "20px 24px", flexWrap: "wrap", gap: 12,
                 }}
@@ -114,7 +114,8 @@ export function ViewerView({ onBack }: Props) {
                                 color: activeTab === tab
                                     ? "#00e5a0"
                                     : "var(--text2)",
-                                border:`2px solid ${activeTab === tab
+                                border:"none",
+                                borderBottom:`2px solid ${activeTab === tab
                                     ? "#00e5a0"
                                     : "transparent"
                                 }`  ,
@@ -135,6 +136,7 @@ export function ViewerView({ onBack }: Props) {
                                 }),
                                 // Active tab shadow
                                 ...(activeTab === tab && {
+                                    background:"rgba(0, 229, 160, 0.08)",
                                     boxShadow: "0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
                                 }),
                             }}
@@ -142,7 +144,7 @@ export function ViewerView({ onBack }: Props) {
                             // Since we're using inline styles, we'll add a className instead for hover effects.
                             // Let's add a className to handle hover properly.
                         >
-                            {tab === "scores" ? "📊 SCORES" : "📋 QUESTIONS"}
+                            {tab === "scores" ? "🏆 SCORES" : "🎯 QUESTIONS"}
                         </button>
                     ))}
                 </div>

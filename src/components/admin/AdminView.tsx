@@ -4,7 +4,8 @@ import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
 import { ControlCard } from "../shared/ControlCard";
 import { QuestionBankCard } from "./QuestionBankCard";
 import { useAudioControl } from "../../hooks/useAudioControl";
-import { saveState, fetchState, mergeCategories } from "../../firebase";
+import { saveState, fetchState, mergeCategories, appendScoreRecord, fetchScoreHistory, clearScoreHistory } from "../../firebase";
+import type { ScoreRecord } from "../../firebase";
 import { DEFAULT_STATE, DEFAULT_CATEGORIES } from "../../data/categories";
 import type { ScoreboardState, Category, TeamSide, QuestionEntry } from "../../types";
 
@@ -27,15 +28,15 @@ export function AdminView({ onBack }: Props) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isMuted, setIsMuted] = useState(true);
-    const [audioEnabled, setAudioEnabled] = useState(false);
+    // const [audioEnabled, setAudioEnabled] = useState(false);
     const [previewRemaining, setPreviewRemaining] = useState(DEFAULT_STATE.timerDuration);
     const [drafts, setDrafts] = useState({
         teamAName: DEFAULT_STATE.teamA.name,
         teamBName: DEFAULT_STATE.teamB.name,
     });
-    const [activeTab, setActiveTab] = useState<"timer" | "categories"|"preview" | "teams" | "bank">("teams");
+    const [activeTab, setActiveTab] = useState<"timer" | "categories"|"preview" | "teams" | "bank" | "history">("teams");
 
-    const { playSound, pauseAllSounds } = useAudioControl(isMuted);
+    const {  pauseAllSounds } = useAudioControl(isMuted);
     const teamANameRef = useRef<HTMLInputElement | null>(null);
     const teamAScoreRef = useRef<HTMLInputElement | null>(null);
     const [pendingQuestion, setPendingQuestion] = useState<{
@@ -226,7 +227,16 @@ export function AdminView({ onBack }: Props) {
         setSaving(true);
         setError(null);
         try {
-            await saveState({ ...state, lastUpdated: Date.now() });
+            const updated = { ...state, lastUpdated: Date.now() };
+            await saveState(updated);
+            await appendScoreRecord({
+                timestamp: Date.now(),
+                teamAName: state.teamA.name,
+                teamBName: state.teamB.name,
+                teamAScore: state.teamA.score,
+                teamBScore: state.teamB.score,
+                period: state.period,
+            });
             setSaved(true);
             setTimeout(() => setSaved(false), 3000);
         } catch (err) {
@@ -257,9 +267,9 @@ export function AdminView({ onBack }: Props) {
         <div className="admin-page">
             <AdminTopBar
                 onBack={onBack}
-                isMuted={isMuted}
-                audioEnabled={audioEnabled}
-                onTestSound={() => { playSound("tenSecTingSnd"); setAudioEnabled(true); }}
+                // isMuted={isMuted}
+                // audioEnabled={audioEnabled}
+                // onTestSound={() => { playSound("tenSecTingSnd"); setAudioEnabled(true); }}
             />
 
             <AdminTabs activeTab={activeTab} onTabChange={setActiveTab} />
@@ -329,6 +339,9 @@ export function AdminView({ onBack }: Props) {
                         onSave={async (nc) => pushState({ ...state, categories: nc, lastUpdated: Date.now() })}
                     />
                 )}
+                {activeTab === "history" && (
+                    <ScoreHistoryPanel />
+                )}
 
             </div>
         </div>
@@ -338,45 +351,44 @@ export function AdminView({ onBack }: Props) {
 // Extracted Components with proper interfaces
 interface TopBarProps {
     onBack: () => void;
-    isMuted: boolean;
-    audioEnabled: boolean;
-    onTestSound: () => void;
+    // isMuted: boolean;
+    // audioEnabled: boolean;
+    // onTestSound: () => void;
 }
 
-function AdminTopBar({ onBack, isMuted, audioEnabled, onTestSound }: TopBarProps) {
+function AdminTopBar({ onBack }: TopBarProps) {
     return (
         <div className="admin-topbar">
             <button className="btn admin-topbar__back" onClick={onBack}>← Back</button>
             <div className="admin-topbar__title">OPERATOR CONTROL</div>
             <div className="admin-topbar__actions">
-                <button
-                    onClick={onTestSound}
-                    className={`sound-btn ${audioEnabled ? "sound-btn--enabled" : "sound-btn--disabled"}`}
-                >
-                    <span className={`sound-btn__dot ${audioEnabled ? "sound-btn__dot--active" : "sound-btn__dot--inactive"}`} />
-                    {audioEnabled ? "SOUND ON" : "CLICK TO TEST SOUND"}
-                </button>
-                <div className={`status-pill ${isMuted ? "status-pill--muted" : "status-pill--active"}`}>
-                    <span className={`status-pill__dot ${isMuted ? "status-pill__dot--muted" : "status-pill__dot--live"}`} />
-                    {isMuted ? "SOUND MUTED" : "SOUND ACTIVE"}
-                </div>
-                <div className="status-pill status-pill--active">🔥 FIREBASE SYNC ACTIVE</div>
+                {/*<button*/}
+                {/*    onClick={onTestSound}*/}
+                {/*    className={`sound-btn ${audioEnabled ? "sound-btn--enabled" : "sound-btn--disabled"}`}*/}
+                {/*>*/}
+                {/*    <span className={`sound-btn__dot ${audioEnabled ? "sound-btn__dot--active" : "sound-btn__dot--inactive"}`} />*/}
+                {/*    {audioEnabled ? "SOUND ON" : "CLICK TO TEST SOUND"}*/}
+                {/*</button>*/}
+                {/*<div className={`status-pill ${isMuted ? "status-pill--muted" : "status-pill--active"}`}>*/}
+                {/*    <span className={`status-pill__dot ${isMuted ? "status-pill__dot--muted" : "status-pill__dot--live"}`} />*/}
+                {/*    {isMuted ? "SOUND MUTED" : "SOUND ACTIVE"}*/}
+                {/*</div>*/}
+                <div className="status-pill status-pill--active"> FIREBASE SYNC ACTIVE</div>
             </div>
         </div>
     );
 }
 
 interface TabsProps {
-    activeTab: "timer" | "categories" | "teams" | "bank"|"preview";
-    onTabChange: (tab: "timer" | "categories" | "teams" | "bank"|"preview") => void;
+    activeTab: "timer" | "categories" | "teams" | "bank" | "preview" | "history";
+    onTabChange: (tab: "timer" | "categories" | "teams" | "bank" | "preview" | "history") => void;
 }
 
 function AdminTabs({ activeTab, onTabChange }: TabsProps) {
     const tabs = [
         { id: "preview" as const, icon: "⏱️", label: "Preview Scores" },
-        // { id: "categories" as const, icon: "📋", label: "CATEGORIES" },
         { id: "teams" as const, icon: "👥", label: "TEAMS" },
-        // { id: "bank" as const, icon: "📚", label: "BANK" }
+        { id: "history" as const, icon: "📊", label: "SCORE HISTORY" },
     ];
 
     return (
@@ -1244,6 +1256,75 @@ function PublishFooter({ error, saved, saving, onPublish, onReset }: PublishFoot
             <button className="btn reset-btn" onClick={onReset}>
                 Reset All
             </button>
+        </div>
+    );
+}
+
+function ScoreHistoryPanel() {
+    const [history, setHistory] = useState<ScoreRecord[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchScoreHistory().then((h) => { setHistory([...h].reverse()); setLoading(false); });
+    }, []);
+
+    const handleClear = async () => {
+        if (!confirm("Clear all score history?")) return;
+        await clearScoreHistory();
+        setHistory([]);
+    };
+
+    const cell: React.CSSProperties = {
+        padding: "16px 20px", fontFamily: "'DM Sans', sans-serif", fontSize: 15,
+        borderBottom: "1px solid rgba(255,255,255,0.05)",
+    };
+
+    return (
+        <div style={{ padding: 24, maxWidth: 1200, width: "100%", margin: "0 auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.1em" }}>SCORE HISTORY</span>
+                <button className="btn" onClick={handleClear}
+                    style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", border: "1px solid var(--red)", padding: "8px 16px", fontSize: 12 }}>
+                    Clear All
+                </button>
+            </div>
+
+            {loading && <div style={{ color: "var(--text3)", fontFamily: "'DM Mono', monospace", fontSize: 12 }}>Loading…</div>}
+            {!loading && history.length === 0 && (
+                <div style={{ color: "var(--text3)", fontFamily: "'DM Mono', monospace", fontSize: 12 }}>
+                    No records yet. Scores are recorded each time you hit Publish.
+                </div>
+            )}
+            {!loading && history.length > 0 && (
+                <div style={{ background: "var(--surface)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, overflow: "hidden" }}>
+                    {/* Header */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 1fr 1fr", background: "var(--surface2)" }}>
+                        {["TIME", "PERIOD", "TEAM A", "SCORE", "TEAM B"].map((h) => (
+                            <div key={h} style={{ ...cell, color: "var(--text3)", fontSize: 12, letterSpacing: "0.15em", fontFamily: "'DM Mono', monospace", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>{h}</div>
+                        ))}
+                    </div>
+                    {/* Rows */}
+                    {history.map((r, i) => {
+                        const aWin = r.teamAScore > r.teamBScore;
+                        const bWin = r.teamBScore > r.teamAScore;
+                        return (
+                            <div key={i} style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 1fr 1fr" }}>
+                                <div style={{ ...cell, color: "var(--text3)", fontSize: 13, fontFamily: "'DM Mono', monospace" }}>
+                                    {new Date(r.timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                </div>
+                                <div style={{ ...cell, color: "var(--text2)" }}>{r.period}</div>
+                                <div style={{ ...cell, color: aWin ? "var(--cyan)" : "var(--text2)", fontWeight: aWin ? 700 : 400 }}>{r.teamAName}</div>
+                                <div style={{ ...cell, textAlign: "center" }}>
+                                    <span style={{ color: "var(--cyan)", fontSize: 20, fontFamily: "'Bebas Neue', sans-serif" }}>{r.teamAScore}</span>
+                                    <span style={{ color: "var(--text3)", margin: "0 8px", fontSize: 16 }}>–</span>
+                                    <span style={{ color: "var(--amber)", fontSize: 20, fontFamily: "'Bebas Neue', sans-serif" }}>{r.teamBScore}</span>
+                                </div>
+                                <div style={{ ...cell, color: bWin ? "var(--amber)" : "var(--text2)", fontWeight: bWin ? 700 : 400 }}>{r.teamBName}</div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }
