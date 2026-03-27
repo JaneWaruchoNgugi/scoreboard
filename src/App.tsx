@@ -10,7 +10,7 @@ function App() {
 
     if (!role)                 return <RoleSelect onSelect={setRole} />;
     if (role === "viewer")     return <ViewerView           onBack={() => setRole("")} />;
-    if (role === "timer-only") return <QuestionsEditorView  onBack={() => setRole("")} />;
+    if (role === "Questions-Entry") return <QuestionsEditorView  onBack={() => setRole("")} />;
     if (role === "admin")      return <AdminView            onBack={() => setRole("")} />;
 }
 

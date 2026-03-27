@@ -119,7 +119,6 @@ export function ViewerView({ onBack }: Props) {
                                     ? "#00e5a0"
                                     : "transparent"
                                 }`  ,
-                                borderRadius: 8,
                                 padding: "12px 0",
                                 fontFamily: "'DM Mono', monospace",
                                 fontSize: 12,

@@ -14,9 +14,9 @@ const ROLES = [
         dimAccent: "var(--cyan-dim)",
     },
     {
-        role: "timer-only",
+        role: "Questions-Entry",
         icon: "⏱",
-        label: "CATEGORIES",
+        label: "Questions Entry",
         desc: "Edit questions for all rounds",
         accent: "var(--green)",
         dimAccent: "rgba(0,229,160,0.15)",
@@ -56,25 +56,36 @@ export function RoleSelect({ onSelect }: Props) {
 
             {/* Title */}
             <div className="fade-up" style={{ textAlign: "center", position: "relative" }}>
-                <div
-                    style={{
-                        fontFamily: "'Bebas Neue', sans-serif",
-                        fontSize: "clamp(56px,14vw,96px)",
-                        letterSpacing: "0.08em", color: "var(--text)", lineHeight: 1,
-                        textShadow: "0 0 60px rgba(0,212,255,0.2)",
-                    }}
-                >
-                    BONGOQUIZ
+                {/* Glow backdrop */}
+                <div style={{
+                    position: "absolute", inset: "-40px -60px",
+                    background: "radial-gradient(ellipse 70% 60% at 50% 50%, rgba(0,212,255,0.12), transparent)",
+                    pointerEvents: "none",
+                }} />
+
+
+                {/* Main wordmark */}
+                <div style={{
+                    fontFamily: "'Bebas Neue', sans-serif",
+                    fontSize: "clamp(64px,15vw,112px)",
+                    letterSpacing: "0.12em",
+                    lineHeight: 1,
+                    background: "linear-gradient(160deg, #ffffff 30%, var(--cyan) 70%, #0090cc 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                    filter: "drop-shadow(0 0 32px rgba(0,212,255,0.35))",
+                }}>
+                    BONGO QUIZ
                 </div>
-                {/*<div*/}
-                {/*    style={{*/}
-                {/*        fontFamily: "'DM Mono', monospace", fontSize: 11,*/}
-                {/*        letterSpacing: "0.4em", color: "var(--cyan)",*/}
-                {/*        textTransform: "uppercase", marginTop: 10, opacity: 0.8,*/}
-                {/*    }}*/}
-                {/*>*/}
-                {/*    LIVE · CROSS-DEVICE · REAL-TIME*/}
-                {/*</div>*/}
+                {/* Underline accent */}
+                <div style={{
+                    margin: "14px auto 0",
+                    width: "clamp(80px,20vw,160px)",
+                    height: 2,
+                    background: "linear-gradient(to right, transparent, var(--cyan), transparent)",
+                    borderRadius: 2,
+                }} />
             </div>
 
             {/* Role cards */}
