@@ -87,6 +87,7 @@ export function ViewerView({ onBack }: Props) {
             >
                 {/* ── Tab switcher (improved styling) ── */}
                 <div
+                    className="viewer-tab-switcher"
                     style={{
                         display: "flex",
                         background: "var(--surface2)",

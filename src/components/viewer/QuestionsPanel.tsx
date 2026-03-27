@@ -20,7 +20,7 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
 
     const countLabel = () => {
         if (round === 1) return `${round1.length} QUESTIONS`;
-        if (round === 2) return `${round2.length} CATEGORIES · ${round2.reduce((s, c) => s + c.questions.length, 0)} QUESTIONS`;
+        if (round === 2) return `${round2.length} CATEGORIES · ${round2.reduce((s, c) => s + (c.questions ?? []).length, 0)} QUESTIONS`;
         return `${round3.length} QUESTIONS`;
     };
 
@@ -53,7 +53,7 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
                 </span>
 
                 <div style={{ display: "flex", background: "var(--bg)", borderRadius: 8, padding: 3, border: "1px solid var(--border)", gap: 2 }}>
-                    {([1, 2] as const).map((r) => (
+                    {([1, 2,3] as const).map((r) => (
                         <div
                             key={r}
                             style={{
@@ -147,7 +147,7 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
 
             {/* Round 1 questions */}
             {round === 1 && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "var(--border)" }}>
+                <div className="questions-r1-grid">
                     {round1.map((q) => (
                         <QuestionRow key={q.id} q={q} showAnswers={showAnswers} />
                     ))}
@@ -156,8 +156,8 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
 
             {/* Round 2 — specific category */}
             {round === 2 && selectedCat && (
-                <div style={{ padding: "8px 0" }}>
-                    {selectedCat.questions.map((q) => (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1, background: "var(--border)" }}>
+                    {(selectedCat.questions ?? []).map((q) => (
                         <div
                             key={q.id}
                             style={{
@@ -165,7 +165,7 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
                                 display: "flex",
                                 gap: 12,
                                 alignItems: "flex-start",
-                                borderBottom: "1px solid var(--border)",
+                                background: "var(--surface)",
                             }}
                         >
                             <span style={{ flexShrink: 0, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--primary)", marginTop: 2, minWidth: 20 }}>
@@ -186,7 +186,7 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
 
             {/* Round 3 questions */}
             {round === 3 && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 1, background: "var(--border)" }}>
+                <div className="questions-r3-grid">
                     {round3.map((q) => (
                         <QuestionRow key={q.id} q={q} showAnswers={showAnswers} />
                     ))}

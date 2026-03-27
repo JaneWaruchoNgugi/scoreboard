@@ -17,7 +17,7 @@ const ROLES = [
         role: "timer-only",
         icon: "⏱",
         label: "CATEGORIES",
-        desc: "Full-screen categories countdown",
+        desc: "Edit questions for all rounds",
         accent: "var(--green)",
         dimAccent: "rgba(0,229,160,0.15)",
     },
@@ -79,7 +79,7 @@ export function RoleSelect({ onSelect }: Props) {
 
             {/* Role cards */}
             <div
-                className="fade-up"
+                className="fade-up role-cards"
                 style={{
                     display: "flex", gap: 20, flexWrap: "wrap",
                     justifyContent: "center", width: "100%", maxWidth: 820,

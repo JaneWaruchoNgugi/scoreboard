@@ -44,6 +44,25 @@ export function subscribeToState(
     return unsubscribe;
 }
 
+// ─── Questions CRUD ────────────────────────────────────────────────────────
+
+export const QUESTIONS_REF = "scoreboard/questions";
+
+export async function saveQuestions(data: unknown): Promise<void> {
+    await set(ref(db, QUESTIONS_REF), data);
+}
+
+export async function fetchQuestions(): Promise<unknown | null> {
+    const snap = await get(ref(db, QUESTIONS_REF));
+    return snap.exists() ? snap.val() : null;
+}
+
+export function subscribeToQuestions(callback: (data: unknown | null) => void): () => void {
+    return onValue(ref(db, QUESTIONS_REF), (snap) => {
+        callback(snap.exists() ? snap.val() : null);
+    });
+}
+
 // ─── Merge helper ──────────────────────────────────────────────────────────
 /**
  * Merges Firebase-saved categories with DEFAULT_CATEGORIES.

@@ -95,18 +95,19 @@ export function ScoreboardDisplay({ state, showScores = false }: Props) { // Acc
             </div>
 
             {/* Scores - Pass showScores prop to ScoreCard */}
-            <div style={{ display: "flex", alignItems: "center" }}>
+            <div className="scoreboard-scores">
                 <ScoreCard team={state.teamA} isHome={true} showScore={showScores} />
-                <div
-                    style={{
-                        display: "flex", flexDirection: "column", alignItems: "center",
-                        gap: 10, padding: "0 16px", flexShrink: 0,
-                    }}
-                >
-                    <div style={{ width: 1, height: 60, background: "linear-gradient(to bottom, transparent, var(--border2), transparent)" }} />
-                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.1em", color: "var(--text3)" }}>VS</span>
-                    <div style={{ width: 1, height: 60, background: "linear-gradient(to bottom, transparent, var(--border2), transparent)" }} />
-                </div>
+                    <div
+                        style={{
+                            display: "flex", flexDirection: "column", alignItems: "center",
+                            gap: 10, padding: "0 16px", flexShrink: 0,
+                        }}
+                        className="scoreboard-vs"
+                    >
+                        <div className="scoreboard-vs-line" style={{ width: 1, height: 60, background: "linear-gradient(to bottom, transparent, var(--border2), transparent)" }} />
+                        <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.1em", color: "var(--text3)" }}>VS</span>
+                        <div className="scoreboard-vs-line" style={{ width: 1, height: 60, background: "linear-gradient(to bottom, transparent, var(--border2), transparent)" }} />
+                    </div>
                 <ScoreCard team={state.teamB} isHome={false} showScore={showScores} />
             </div>
 

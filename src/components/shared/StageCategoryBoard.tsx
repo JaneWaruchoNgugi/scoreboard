@@ -183,13 +183,7 @@ export function StageCategoryBoard({ state }: Props) {
                                 padding: "40px", // Increased padding
                             }}
                         >
-                            <div
-                                style={{
-                                    display: "grid",
-                                    gridTemplateColumns: "repeat(4,1fr)",
-                                    gap: "clamp(16px,2vw,24px)", // Increased gap
-                                }}
-                            >
+                            <div className="category-board-grid">
                                 {cats.map((cat) => {
                                     const ts = TILE[cat.id] ?? {
                                         fill: cat.color,

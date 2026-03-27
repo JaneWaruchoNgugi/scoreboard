@@ -1612,3 +1612,116 @@ select:focus {
          background-position: 200% 0;
      }
  }
+
+/* ─── Responsive Utilities ──────────────────────────────────────────────── */
+
+/* ScoreboardDisplay: stack score cards vertically on small screens */
+.scoreboard-scores {
+    display: flex;
+    align-items: center;
+}
+@media (max-width: 480px) {
+    .scoreboard-scores {
+        flex-direction: column;
+    }
+    .scoreboard-vs {
+        flex-direction: row !important;
+        padding: 0 !important;
+    }
+    .scoreboard-vs-line {
+        display: none !important;
+    }
+}
+
+/* QuestionsPanel: round 1 grid collapses on mobile */
+.questions-r1-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+}
+@media (max-width: 700px) {
+    .questions-r1-grid {
+        grid-template-columns: 1fr;
+    }
+    .questions-r2-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* QuestionsPanel: round 3 grid */
+.questions-r3-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1px;
+    background: var(--border);
+}
+@media (max-width: 480px) {
+    .questions-r3-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* StageCategoryBoard: 4-col → 2-col on tablet, 2-col on mobile */
+.category-board-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: clamp(10px, 2vw, 24px);
+}
+@media (max-width: 900px) {
+    .category-board-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* AdminView tabs: scroll horizontally on small screens */
+.admin-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+    flex-wrap: nowrap !important;
+}
+.admin-tabs::-webkit-scrollbar { display: none; }
+
+@media (max-width: 600px) {
+    .admin-tab {
+        font-size: 14px !important;
+        padding: 10px 14px !important;
+    }
+    .teams-row {
+        grid-template-columns: 1fr !important;
+    }
+    .timer-categories-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .duration-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .round-selector {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .category-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .categories-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ViewerView: tab switcher full-width on mobile */
+@media (max-width: 480px) {
+    .viewer-tab-switcher {
+        max-width: 100% !important;
+    }
+}
+
+/* RoleSelect: cards stack nicely on very small screens */
+@media (max-width: 360px) {
+    .role-cards button {
+        min-width: 100% !important;
+    }
+}
+
+/* General: prevent horizontal overflow */
+body {
+    overflow-x: hidden;
+}
