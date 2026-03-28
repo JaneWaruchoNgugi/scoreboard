@@ -15,8 +15,8 @@ interface Props {
     onBack: () => void;
 }
 
-const QUICK_AMOUNTS = [50,100,250, 500, 600, 1000, 2000];
-const NEG_AMOUNTS = [-50,-100,-250, -500, -600, -1000, -2000];
+const QUICK_AMOUNTS = [50,100,250, 500, 600, 750,1000, 2000,2500];
+const NEG_AMOUNTS = [-50,-100,-250, -500, -600,750, -1000, -2000,2500];
 const R1_DURATIONS = [150];
 const R2_DURATIONS = [10, 20,30];
 const R3_DURATIONS = [30];
