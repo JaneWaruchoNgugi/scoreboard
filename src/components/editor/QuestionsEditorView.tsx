@@ -43,31 +43,29 @@ function EmojiPicker({ value, onChange }: { value: string; onChange: (e: string)
 }
 
 
-// Also handles "Q: ...\nA: ..." two-line format as fallback.
+// Parses bulk Q&A text. Supports:
+//   1. "Question? Answer"  — split at last "?"
+//   2. Two consecutive non-empty lines — first is question, second is answer
+//   3. Blank line between pairs is optional and ignored
 function parseBulkQA(text: string, startId = 1): Question[] {
-    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    const lines = text.split("\n").map((l) => l.trim());
     const questions: Question[] = [];
     let id = startId;
     let i = 0;
     while (i < lines.length) {
         const line = lines[i];
+        if (!line) { i++; continue; }
         const qMark = line.lastIndexOf("?");
         if (qMark !== -1) {
-            // "Question? Answer" on one line
-            const question = line.slice(0, qMark + 1).trim();
-            const answer = line.slice(qMark + 1).trim();
-            questions.push({ id: id++, question, answer });
+            questions.push({ id: id++, question: line.slice(0, qMark + 1).trim(), answer: line.slice(qMark + 1).trim() });
             i++;
         } else {
-            // Fallback: "Q: ..." / "A: ..." two-line format
-            const qLine = line.replace(/^Q\s*\d*[:.)\s]*/i, "").trim();
-            const aLine = lines[i + 1]?.replace(/^A\s*[:.)\s]*/i, "").trim() ?? "";
-            if (qLine) {
-                questions.push({ id: id++, question: qLine, answer: aLine });
-                i += aLine ? 2 : 1;
-            } else {
-                i++;
-            }
+            // next non-empty line is the answer
+            let j = i + 1;
+            while (j < lines.length && !lines[j]) j++;
+            const answer = lines[j] ?? "";
+            questions.push({ id: id++, question: line, answer });
+            i = j + 1;
         }
     }
     return questions;
@@ -121,6 +119,19 @@ export function QuestionsEditorView({ onBack }: Props) {
         setR1Bulk("");
         setR3Bulk("");
         setR2BulkMap({});
+        setSaving(false);
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+    }
+
+    async function saveOneQuestion(round: RoundTab, catId: number | null, updatedList: Question[]) {
+        setSaving(true);
+        const finalR1 = round === 1 ? updatedList : r1;
+        const finalR3 = round === 3 ? updatedList : r3;
+        const finalR2 = round === 2
+            ? r2.map((c) => c.id === catId ? { ...c, questions: updatedList } : c)
+            : r2;
+        await saveQuestions({ round1: finalR1, round2: finalR2, round3: finalR3 });
         setSaving(false);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
@@ -200,11 +211,13 @@ export function QuestionsEditorView({ onBack }: Props) {
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                             <span style={label}>CURRENT QUESTIONS (edit inline)</span>
                             {r1.map((q, i) => (
-                                <div key={q.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "center" }}>
+                                <div key={q.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8, alignItems: "center" }}>
                                     <input style={inputStyle} value={q.question} placeholder="Question"
                                         onChange={(e) => setR1(r1.map((x, j) => j === i ? { ...x, question: e.target.value } : x))} />
                                     <input style={inputStyle} value={q.answer} placeholder="Answer"
                                         onChange={(e) => setR1(r1.map((x, j) => j === i ? { ...x, answer: e.target.value } : x))} />
+                                    <button className="btn" onClick={() => saveOneQuestion(1, null, r1)} disabled={saving}
+                                        style={{ background: "rgba(0,200,150,0.15)", color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "8px 10px", fontSize: 12 }}>💾</button>
                                     <button className="btn" onClick={() => setR1(r1.filter((_, j) => j !== i))}
                                         style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", border: "1px solid var(--red)", padding: "8px 12px", fontSize: 12 }}>✕</button>
                                 </div>
@@ -237,7 +250,7 @@ export function QuestionsEditorView({ onBack }: Props) {
                                 {(cat.questions ?? []).length > 0 && !r2BulkMap[cat.id] && (
                                     <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
                                         {(cat.questions ?? []).map((q, i) => (
-                                            <div key={q.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8 }}>
+                                            <div key={q.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8 }}>
                                                 <input style={inputStyle} value={q.question} placeholder="Question"
                                                     onChange={(e) => setR2(r2.map((c) => c.id === cat.id
                                                         ? { ...c, questions: (c.questions ?? []).map((x, j) => j === i ? { ...x, question: e.target.value } : x) }
@@ -246,6 +259,9 @@ export function QuestionsEditorView({ onBack }: Props) {
                                                     onChange={(e) => setR2(r2.map((c) => c.id === cat.id
                                                         ? { ...c, questions: (c.questions ?? []).map((x, j) => j === i ? { ...x, answer: e.target.value } : x) }
                                                         : c))} />
+                                                <button className="btn" disabled={saving}
+                                                    onClick={() => saveOneQuestion(2, cat.id, r2.find((c) => c.id === cat.id)?.questions ?? [])}
+                                                    style={{ background: "rgba(0,200,150,0.15)", color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "8px 10px", fontSize: 12 }}>💾</button>
                                                 <button className="btn" onClick={() => setR2(r2.map((c) => c.id === cat.id
                                                     ? { ...c, questions: (c.questions ?? []).filter((_, j) => j !== i) } : c))}
                                                     style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", border: "1px solid var(--red)", padding: "8px 12px", fontSize: 12 }}>✕</button>
@@ -279,11 +295,13 @@ export function QuestionsEditorView({ onBack }: Props) {
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                             <span style={label}>CURRENT QUESTIONS</span>
                             {r3.map((q, i) => (
-                                <div key={q.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, alignItems: "center" }}>
+                                <div key={q.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8, alignItems: "center" }}>
                                     <input style={inputStyle} value={q.question} placeholder="Question"
                                         onChange={(e) => setR3(r3.map((x, j) => j === i ? { ...x, question: e.target.value } : x))} />
                                     <input style={inputStyle} value={q.answer} placeholder="Answer"
                                         onChange={(e) => setR3(r3.map((x, j) => j === i ? { ...x, answer: e.target.value } : x))} />
+                                    <button className="btn" onClick={() => saveOneQuestion(3, null, r3)} disabled={saving}
+                                        style={{ background: "rgba(0,200,150,0.15)", color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "8px 10px", fontSize: 12 }}>💾</button>
                                     <button className="btn" onClick={() => setR3(r3.filter((_, j) => j !== i))}
                                         style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", border: "1px solid var(--red)", padding: "8px 12px", fontSize: 12 }}>✕</button>
                                 </div>

@@ -30,7 +30,6 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
                 background: "var(--surface)",
                 border: "1px solid var(--border)",
                 borderRadius: 16,
-                overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
             }}
@@ -46,6 +45,9 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
                     background: "var(--surface2)",
                     flexWrap: "wrap",
                     gap: 12,
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 11,
                 }}
             >
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.15em", color: "var(--text3)" }}>
@@ -80,7 +82,7 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
             <div
                 style={{
                     position: "sticky",
-                    top: 0,
+                    top: 53,
                     zIndex: 10,
                     background: "var(--bg)",
                     padding: "12px 20px",
@@ -156,7 +158,7 @@ export function QuestionsPanel({ round, showAnswers = false }: Props) {
 
             {/* Round 2 — specific category */}
             {round === 2 && selectedCat && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 1, background: "var(--border)" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, background: "var(--border)" }}>
                     {(selectedCat.questions ?? []).map((q) => (
                         <div
                             key={q.id}

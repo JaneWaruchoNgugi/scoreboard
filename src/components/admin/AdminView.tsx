@@ -4,7 +4,7 @@ import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
 import { ControlCard } from "../shared/ControlCard";
 import { QuestionBankCard } from "./QuestionBankCard";
 import { useAudioControl } from "../../hooks/useAudioControl";
-import { saveState, fetchState, mergeCategories, appendScoreRecord, fetchScoreHistory, clearScoreHistory } from "../../firebase";
+import { saveState, fetchState, mergeCategories, appendScoreRecord, fetchScoreHistory, clearScoreHistory, saveScoreHistory } from "../../firebase";
 import type { ScoreRecord } from "../../firebase";
 import { DEFAULT_STATE, DEFAULT_CATEGORIES } from "../../data/categories";
 import type { ScoreboardState, Category, TeamSide, QuestionEntry } from "../../types";
@@ -1263,10 +1263,55 @@ function PublishFooter({ error, saved, saving, onPublish, onReset }: PublishFoot
 function ScoreHistoryPanel() {
     const [history, setHistory] = useState<ScoreRecord[]>([]);
     const [loading, setLoading] = useState(true);
+    const [editIdx, setEditIdx] = useState<number | null>(null);
+    const [editDraft, setEditDraft] = useState<ScoreRecord | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [addingNew, setAddingNew] = useState(false);
+    const [newDraft, setNewDraft] = useState<ScoreRecord>({
+        timestamp: Date.now(), teamAName: "", teamBName: "", teamAScore: 0, teamBScore: 0, period: "",
+    });
 
     useEffect(() => {
         fetchScoreHistory().then((h) => { setHistory([...h].reverse()); setLoading(false); });
     }, []);
+
+    // history is displayed reversed; we need to map display index → original index
+    const originalIdx = (displayIdx: number) => history.length - 1 - displayIdx;
+
+    async function persist(updated: ScoreRecord[]) {
+        setSaving(true);
+        // store in chronological order (reversed from display)
+        await saveScoreHistory([...updated].reverse());
+        setSaving(false);
+    }
+
+    async function handleDelete(displayIdx: number) {
+        const next = history.filter((_, i) => i !== displayIdx);
+        setHistory(next);
+        await persist(next);
+    }
+
+    function startEdit(displayIdx: number) {
+        setEditIdx(displayIdx);
+        setEditDraft({ ...history[displayIdx] });
+    }
+
+    async function commitEdit() {
+        if (editIdx === null || !editDraft) return;
+        const next = history.map((r, i) => i === editIdx ? editDraft : r);
+        setHistory(next);
+        setEditIdx(null);
+        setEditDraft(null);
+        await persist(next);
+    }
+
+    async function handleAdd() {
+        const next = [{ ...newDraft, timestamp: Date.now() }, ...history];
+        setHistory(next);
+        setAddingNew(false);
+        setNewDraft({ timestamp: Date.now(), teamAName: "", teamBName: "", teamAScore: 0, teamBScore: 0, period: "" });
+        await persist(next);
+    }
 
     const handleClear = async () => {
         if (!confirm("Clear all score history?")) return;
@@ -1275,19 +1320,44 @@ function ScoreHistoryPanel() {
     };
 
     const cell: React.CSSProperties = {
-        padding: "16px 20px", fontFamily: "'DM Sans', sans-serif", fontSize: 15,
+        padding: "12px 16px", fontFamily: "'DM Sans', sans-serif", fontSize: 14,
         borderBottom: "1px solid rgba(255,255,255,0.05)",
+    };
+    const inp: React.CSSProperties = {
+        background: "var(--surface3)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 6,
+        color: "var(--text)", padding: "5px 8px", fontSize: 13, width: "100%", fontFamily: "'DM Sans', sans-serif",
     };
 
     return (
         <div style={{ padding: 24, maxWidth: 1200, width: "100%", margin: "0 auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, gap: 12, flexWrap: "wrap" }}>
                 <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.1em" }}>SCORE HISTORY</span>
-                <button className="btn" onClick={handleClear}
-                    style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", border: "1px solid var(--red)", padding: "8px 16px", fontSize: 12 }}>
-                    Clear All
-                </button>
+                <div style={{ display: "flex", gap: 8 }}>
+                    <button className="btn" onClick={() => setAddingNew(true)} disabled={addingNew}
+                        style={{ background: "rgba(0,200,150,0.15)", color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "8px 16px", fontSize: 12 }}>
+                        + Add Entry
+                    </button>
+                    <button className="btn" onClick={handleClear}
+                        style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", border: "1px solid var(--red)", padding: "8px 16px", fontSize: 12 }}>
+                        Clear All
+                    </button>
+                </div>
             </div>
+
+            {/* Add new row form */}
+            {addingNew && (
+                <div style={{ background: "var(--surface)", border: "1px solid var(--cyan)", borderRadius: 12, padding: 16, marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 80px 80px 1fr auto auto", gap: 8, alignItems: "center" }}>
+                    <input style={inp} placeholder="Team A name" value={newDraft.teamAName} onChange={(e) => setNewDraft({ ...newDraft, teamAName: e.target.value })} />
+                    <input style={inp} placeholder="Team B name" value={newDraft.teamBName} onChange={(e) => setNewDraft({ ...newDraft, teamBName: e.target.value })} />
+                    <input style={inp} type="number" placeholder="A score" value={newDraft.teamAScore} onChange={(e) => setNewDraft({ ...newDraft, teamAScore: +e.target.value })} />
+                    <input style={inp} type="number" placeholder="B score" value={newDraft.teamBScore} onChange={(e) => setNewDraft({ ...newDraft, teamBScore: +e.target.value })} />
+                    <input style={inp} placeholder="Period" value={newDraft.period} onChange={(e) => setNewDraft({ ...newDraft, period: e.target.value })} />
+                    <button className="btn" onClick={handleAdd} disabled={saving}
+                        style={{ background: "var(--cyan)", color: "var(--bg)", padding: "7px 14px", fontSize: 12, fontWeight: 700 }}>Save</button>
+                    <button className="btn" onClick={() => setAddingNew(false)}
+                        style={{ background: "var(--surface2)", color: "var(--text2)", padding: "7px 12px", fontSize: 12 }}>✕</button>
+                </div>
+            )}
 
             {loading && <div style={{ color: "var(--text3)", fontFamily: "'DM Mono', monospace", fontSize: 12 }}>Loading…</div>}
             {!loading && history.length === 0 && (
@@ -1298,28 +1368,48 @@ function ScoreHistoryPanel() {
             {!loading && history.length > 0 && (
                 <div style={{ background: "var(--surface)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, overflow: "hidden" }}>
                     {/* Header */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 1fr 1fr", background: "var(--surface2)" }}>
-                        {["TIME", "PERIOD", "TEAM A", "SCORE", "TEAM B"].map((h) => (
-                            <div key={h} style={{ ...cell, color: "var(--text3)", fontSize: 12, letterSpacing: "0.15em", fontFamily: "'DM Mono', monospace", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>{h}</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.8fr 1fr 1.2fr 1fr 80px", background: "var(--surface2)" }}>
+                        {["TIME", "PERIOD", "TEAM A", "SCORE", "TEAM B", ""].map((h, i) => (
+                            <div key={i} style={{ ...cell, color: "var(--text3)", fontSize: 11, letterSpacing: "0.15em", fontFamily: "'DM Mono', monospace", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>{h}</div>
                         ))}
                     </div>
-                    {/* Rows */}
                     {history.map((r, i) => {
                         const aWin = r.teamAScore > r.teamBScore;
                         const bWin = r.teamBScore > r.teamAScore;
+                        const isEditing = editIdx === i;
                         return (
-                            <div key={i} style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 1fr 1fr 1fr" }}>
-                                <div style={{ ...cell, color: "var(--text3)", fontSize: 13, fontFamily: "'DM Mono', monospace" }}>
-                                    {new Date(r.timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                                </div>
-                                <div style={{ ...cell, color: "var(--text2)" }}>{r.period}</div>
-                                <div style={{ ...cell, color: aWin ? "var(--cyan)" : "var(--text2)", fontWeight: aWin ? 700 : 400 }}>{r.teamAName}</div>
-                                <div style={{ ...cell, textAlign: "center" }}>
-                                    <span style={{ color: "var(--cyan)", fontSize: 20, fontFamily: "'Bebas Neue', sans-serif" }}>{r.teamAScore}</span>
-                                    <span style={{ color: "var(--text3)", margin: "0 8px", fontSize: 16 }}>–</span>
-                                    <span style={{ color: "var(--amber)", fontSize: 20, fontFamily: "'Bebas Neue', sans-serif" }}>{r.teamBScore}</span>
-                                </div>
-                                <div style={{ ...cell, color: bWin ? "var(--amber)" : "var(--text2)", fontWeight: bWin ? 700 : 400 }}>{r.teamBName}</div>
+                            <div key={originalIdx(i)} style={{ display: "grid", gridTemplateColumns: "1.4fr 0.8fr 1fr 1.2fr 1fr 80px", background: isEditing ? "rgba(0,200,150,0.05)" : undefined }}>
+                                {isEditing && editDraft ? (<>
+                                    <div style={cell}><input style={inp} type="datetime-local" value={new Date(editDraft.timestamp - new Date(editDraft.timestamp).getTimezoneOffset() * 60000).toISOString().slice(0, 16)} onChange={(e) => setEditDraft({ ...editDraft, timestamp: new Date(e.target.value).getTime() })} /></div>
+                                    <div style={cell}><input style={inp} value={editDraft.period} onChange={(e) => setEditDraft({ ...editDraft, period: e.target.value })} /></div>
+                                    <div style={cell}><input style={inp} value={editDraft.teamAName} onChange={(e) => setEditDraft({ ...editDraft, teamAName: e.target.value })} /></div>
+                                    <div style={{ ...cell, display: "flex", gap: 4, alignItems: "center" }}>
+                                        <input style={{ ...inp, width: 60 }} type="number" value={editDraft.teamAScore} onChange={(e) => setEditDraft({ ...editDraft, teamAScore: +e.target.value })} />
+                                        <span style={{ color: "var(--text3)" }}>–</span>
+                                        <input style={{ ...inp, width: 60 }} type="number" value={editDraft.teamBScore} onChange={(e) => setEditDraft({ ...editDraft, teamBScore: +e.target.value })} />
+                                    </div>
+                                    <div style={cell}><input style={inp} value={editDraft.teamBName} onChange={(e) => setEditDraft({ ...editDraft, teamBName: e.target.value })} /></div>
+                                    <div style={{ ...cell, display: "flex", gap: 4 }}>
+                                        <button className="btn" onClick={commitEdit} disabled={saving} style={{ background: "var(--cyan)", color: "var(--bg)", padding: "5px 10px", fontSize: 11, fontWeight: 700 }}>✓</button>
+                                        <button className="btn" onClick={() => { setEditIdx(null); setEditDraft(null); }} style={{ background: "var(--surface2)", color: "var(--text2)", padding: "5px 8px", fontSize: 11 }}>✕</button>
+                                    </div>
+                                </>) : (<>
+                                    <div style={{ ...cell, color: "var(--text3)", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
+                                        {new Date(r.timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                    </div>
+                                    <div style={{ ...cell, color: "var(--text2)" }}>{r.period}</div>
+                                    <div style={{ ...cell, color: aWin ? "var(--cyan)" : "var(--text2)", fontWeight: aWin ? 700 : 400 }}>{r.teamAName}</div>
+                                    <div style={{ ...cell, textAlign: "center" }}>
+                                        <span style={{ color: "var(--cyan)", fontSize: 18, fontFamily: "'Bebas Neue', sans-serif" }}>{r.teamAScore}</span>
+                                        <span style={{ color: "var(--text3)", margin: "0 6px" }}>–</span>
+                                        <span style={{ color: "var(--amber)", fontSize: 18, fontFamily: "'Bebas Neue', sans-serif" }}>{r.teamBScore}</span>
+                                    </div>
+                                    <div style={{ ...cell, color: bWin ? "var(--amber)" : "var(--text2)", fontWeight: bWin ? 700 : 400 }}>{r.teamBName}</div>
+                                    <div style={{ ...cell, display: "flex", gap: 4 }}>
+                                        <button className="btn" onClick={() => startEdit(i)} style={{ background: "rgba(255,255,255,0.06)", color: "var(--text2)", padding: "5px 8px", fontSize: 11, border: "1px solid rgba(255,255,255,0.08)" }}>✏️</button>
+                                        <button className="btn" onClick={() => handleDelete(i)} style={{ background: "rgba(255,64,96,0.12)", color: "var(--red)", padding: "5px 8px", fontSize: 11, border: "1px solid var(--red)" }}>✕</button>
+                                    </div>
+                                </>)}
                             </div>
                         );
                     })}

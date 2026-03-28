@@ -1,9 +1,9 @@
-import { useState } from "react";
+import {useState} from "react";
 import "../shared/GlobalStyles.css";
-import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
+import {ScoreboardDisplay} from "../shared/ScoreboardDisplay";
 // import { CountdownDisplay } from "../shared/CountdownDisplay";
-import { useFirebaseState } from "../../hooks/useFirebaseState";
-import { QuestionsPanel } from "./QuestionsPanel.tsx";
+import {useFirebaseState} from "../../hooks/useFirebaseState";
+import {QuestionsPanel} from "./QuestionsPanel.tsx";
 
 interface Props {
     onBack: () => void;
@@ -22,8 +22,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 type Tab = "scores" | "questions";
 
-export function ViewerView({ onBack }: Props) {
-    const { state, status } = useFirebaseState();
+export function ViewerView({onBack}: Props) {
+    const {state, status} = useFirebaseState();
     const [activeTab, setActiveTab] = useState<Tab>("scores");
     const color = STATUS_COLOR[status];
 
@@ -114,11 +114,11 @@ export function ViewerView({ onBack }: Props) {
                                 color: activeTab === tab
                                     ? "#00e5a0"
                                     : "var(--text2)",
-                                border:"none",
-                                borderBottom:`2px solid ${activeTab === tab
+                                border: "none",
+                                borderBottom: `2px solid ${activeTab === tab
                                     ? "#00e5a0"
                                     : "transparent"
-                                }`  ,
+                                }`,
                                 padding: "12px 0",
                                 fontFamily: "'DM Mono', monospace",
                                 fontSize: 12,
@@ -135,7 +135,7 @@ export function ViewerView({ onBack }: Props) {
                                 }),
                                 // Active tab shadow
                                 ...(activeTab === tab && {
-                                    background:"rgba(0, 229, 160, 0.08)",
+                                    background: "rgba(0, 229, 160, 0.08)",
                                     boxShadow: "0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1)",
                                 }),
                             }}
@@ -150,10 +150,13 @@ export function ViewerView({ onBack }: Props) {
 
                 {/* ── Tab content ── */}
                 {activeTab === "scores" && (
-                    <ScoreboardDisplay state={state} showScores={true} />
+                    <ScoreboardDisplay state={state} showScores={true}/>
                 )}
+
                 {activeTab === "questions" && (
-                    <QuestionsPanel round={state.timerRound} showAnswers={true} />
+                    <div style={{height: "calc(100vh - 160px)", overflowY: "auto", borderRadius: 16}}>
+                        <QuestionsPanel round={state.timerRound} showAnswers={true}/>
+                    </div>
                 )}
             </div>
         </div>

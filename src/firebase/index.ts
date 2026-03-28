@@ -70,6 +70,10 @@ export async function clearScoreHistory(): Promise<void> {
     await set(ref(db, "scoreboard/scoreHistory"), []);
 }
 
+export async function saveScoreHistory(records: ScoreRecord[]): Promise<void> {
+    await set(ref(db, "scoreboard/scoreHistory"), records);
+}
+
 // ─── Questions CRUD ────────────────────────────────────────────────────────
 
 export const QUESTIONS_REF = "scoreboard/questions";
