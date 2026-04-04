@@ -388,8 +388,8 @@ interface TabsProps {
 
 function AdminTabs({ activeTab, onTabChange }: TabsProps) {
     const tabs = [
-        { id: "preview" as const, icon: "⏱️", label: "Preview Scores" },
-        { id: "teams" as const, icon: "👥", label: "TEAMS" },
+        { id: "preview" as const, icon: "👥", label: "Preview Scores" },
+        { id: "teams" as const, icon: "⏱️", label: "TEAMS" },
         { id: "history" as const, icon: "📊", label: "SCORE HISTORY" },
     ];
 
