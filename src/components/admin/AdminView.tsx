@@ -15,10 +15,10 @@ interface Props {
     onBack: () => void;
 }
 
-const QUICK_AMOUNTS = [50,100,250, 500, 600, 750,1000, 2000,2500];
-const NEG_AMOUNTS = [-50,-100,-250, -500, -600,750, -1000, -2000,2500];
+const QUICK_AMOUNTS = [50,100,150,250, 500, 600, 750,1000, 2000,2500];
+const NEG_AMOUNTS = [-50,-100,-150,-250, -500,-600,-750,-1000,-2000,-2500];
 const R1_DURATIONS = [150];
-const R2_DURATIONS = [10, 20,30];
+const R2_DURATIONS = [10, 20,30,35,40];
 const R3_DURATIONS = [30];
 
 export function AdminView({ onBack }: Props) {
@@ -161,7 +161,7 @@ export function AdminView({ onBack }: Props) {
         setState((p) => ({
             ...p,
             timerRound: round,
-            timerDuration: round === 1 ? 90 : 30,
+            timerDuration: round === 1 ? 150 : (round === 2 ? 30 : 30),
             timerStartedAt: null,
             timerRunning: false,
             activeCategory: null,
