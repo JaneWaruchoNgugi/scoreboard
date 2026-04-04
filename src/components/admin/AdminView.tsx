@@ -64,9 +64,11 @@ export function AdminView({ onBack }: Props) {
             try {
                 const raw = await fetchState();
                 if (raw) {
+                    const roundDefaults: Record<number, number> = { 1: 150, 2: 30, 3: 30 };
                     const loaded: ScoreboardState = {
                         ...DEFAULT_STATE,
                         ...raw,
+                        timerDuration: roundDefaults[raw.timerRound ?? 1] ?? 150,
                         categories: raw.categories
                             ? mergeCategories(raw.categories)
                             : DEFAULT_CATEGORIES,
