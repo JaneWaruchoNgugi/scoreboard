@@ -1151,7 +1151,7 @@ function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreCh
     const isHome = side === "A";
 
     return (
-        <ControlCard accent={accent} title={isHome ? "HOME TEAM" : "AWAY TEAM"}>
+        <ControlCard accent={accent} title={isHome ? "TEAM A" : "TEAM B"}>
             <div className="team-card__content">
                 <div>
                     <label className="field-label">TEAM NAME</label>
@@ -1163,7 +1163,7 @@ function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreCh
                         onKeyDown={(e) => e.key === "Enter" && onCommitName()}
                         onFocus={onFocus}
                         placeholder="Enter team name..."
-                        maxLength={isHome ? 20 : 100}
+                        // maxLength={isHome ? 20 : 100}
                         className={`field-input${isHome ? "" : " amber"}`}
                     />
                 </div>
