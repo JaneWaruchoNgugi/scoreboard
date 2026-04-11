@@ -15,8 +15,8 @@ interface Props {
     onBack: () => void;
 }
 
-const QUICK_AMOUNTS = [50,100,150,250, 500, 600, 750,1000, 2000,2500];
-const NEG_AMOUNTS = [-50,-100,-150,-250, -500,-600,-750,-1000,-2000,-2500];
+// const QUICK_AMOUNTS = [50,100,150,250, 500, 600, 750,1000, 2000,2500];
+// const NEG_AMOUNTS = [-50,-100,-150,-250, -500,-600,-750,-1000,-2000,-2500];
 const R1_DURATIONS = [150];
 const R2_DURATIONS = [20,25,30,35,40];
 const R3_DURATIONS = [60];
@@ -34,7 +34,7 @@ export function AdminView({ onBack }: Props) {
         teamAName: DEFAULT_STATE.teamA.name,
         teamBName: DEFAULT_STATE.teamB.name,
     });
-    const [activeTab, setActiveTab] = useState<"timer" | "categories"|"preview" | "teams" | "bank" | "history">("teams");
+    const [activeTab, setActiveTab] = useState<"timer" | "categories"|"preview" | "teams" | "bank" | "history" | "spins">("teams");
 
     const {  pauseAllSounds } = useAudioControl(isMuted);
     const teamANameRef = useRef<HTMLInputElement | null>(null);
@@ -225,6 +225,15 @@ export function AdminView({ onBack }: Props) {
         });
     };
 
+    const handleClearScores = async () => {
+        await pushState({
+            ...state,
+            teamA: { ...state.teamA, score: 0 },
+            teamB: { ...state.teamB, score: 0 },
+            lastUpdated: Date.now(),
+        });
+    };
+
     const handlePublish = async () => {
         setSaving(true);
         setError(null);
@@ -311,6 +320,7 @@ export function AdminView({ onBack }: Props) {
                                 onFocus={handleFocus}
                                 teamANameRef={teamANameRef}
                                 teamAScoreRef={teamAScoreRef}
+                                onClearScores={handleClearScores}
                             />
                             <PublishFooter
                                 error={error}
@@ -343,6 +353,20 @@ export function AdminView({ onBack }: Props) {
                 )}
                 {activeTab === "history" && (
                     <ScoreHistoryPanel />
+                )}
+                {activeTab === "spins" && (
+                    <SpinsPanel
+                        teamAName={state.teamA.name}
+                        teamBName={state.teamB.name}
+                        onAddToMain={async (a, b) => {
+                            await pushState({
+                                ...state,
+                                teamA: { ...state.teamA, score: state.teamA.score + a },
+                                teamB: { ...state.teamB, score: state.teamB.score + b },
+                                lastUpdated: Date.now(),
+                            });
+                        }}
+                    />
                 )}
 
             </div>
@@ -382,14 +406,15 @@ function AdminTopBar({ onBack }: TopBarProps) {
 }
 
 interface TabsProps {
-    activeTab: "timer" | "categories" | "teams" | "bank" | "preview" | "history";
-    onTabChange: (tab: "timer" | "categories" | "teams" | "bank" | "preview" | "history") => void;
+    activeTab: "timer" | "categories" | "teams" | "bank" | "preview" | "history" | "spins";
+    onTabChange: (tab: "timer" | "categories" | "teams" | "bank" | "preview" | "history" | "spins") => void;
 }
 
 function AdminTabs({ activeTab, onTabChange }: TabsProps) {
     const tabs = [
         { id: "preview" as const, icon: "👥", label: "Preview Scores" },
         { id: "teams" as const, icon: "⏱️", label: "TEAMS" },
+        { id: "spins" as const, icon: "🎰", label: "3 SPINS SCORES" },
         { id: "history" as const, icon: "📊", label: "SCORE HISTORY" },
     ];
 
@@ -551,6 +576,10 @@ interface DurationSelectorProps {
 
 function DurationSelector({ round, currentDuration, onSelectDuration, onFocus, isRunning }: DurationSelectorProps) {
     const durations = round === 1 ? R1_DURATIONS :( round===2 ? R2_DURATIONS: R3_DURATIONS);
+    const [draft, setDraft] = useState(currentDuration.toString());
+
+    // sync when a preset button changes the duration externally
+    useEffect(() => { setDraft(currentDuration.toString()); }, [currentDuration]);
 
     return (
         <>
@@ -574,8 +603,9 @@ function DurationSelector({ round, currentDuration, onSelectDuration, onFocus, i
                 <input
                     type="number"
                     className="duration-input"
-                    value={currentDuration}
+                    value={draft}
                     onChange={(e) => {
+                        setDraft(e.target.value);
                         const v = parseInt(e.target.value, 10);
                         if (!isNaN(v) && v > 0) onSelectDuration(v);
                     }}
@@ -1085,6 +1115,7 @@ interface TeamsCardProps {
     onFocus: (e: React.FocusEvent<HTMLInputElement | null>) => void;
     teamANameRef: React.RefObject<HTMLInputElement | null>;
     teamAScoreRef: React.RefObject<HTMLInputElement | null>;
+    onClearScores: () => Promise<void>;
 }
 
 function TeamsCard({
@@ -1096,7 +1127,8 @@ function TeamsCard({
                        onAdjustScore,
                        onFocus,
                        teamANameRef,
-                       teamAScoreRef
+                       teamAScoreRef,
+                       onClearScores,
                    }: TeamsCardProps) {
     return (
         <div className="teams-row">
@@ -1126,6 +1158,13 @@ function TeamsCard({
                 scoreRef={null}
                 accent="var(--amber)"
             />
+            <button
+                className="btn"
+                onClick={onClearScores}
+                style={{ gridColumn: "1 / -1", background: "rgba(255,64,96,0.12)", border: "1px solid var(--red)", color: "var(--red)", padding: "10px", fontSize: 13, fontWeight: 700, marginTop: 8, width: "100%" }}
+            >
+                ✕ CLEAR BOTH SCORES
+            </button>
         </div>
     );
 }
@@ -1149,6 +1188,9 @@ interface TeamCardProps {
 
 function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreChange, onAdjustScore, onFocus, nameRef, scoreRef, accent }: TeamCardProps) {
     const isHome = side === "A";
+    const [correctVal, setCorrectVal] = useState("100");
+    const [wrongVal, setWrongVal] = useState("50");
+    const [passVal, setPassVal] = useState("50");
 
     return (
         <ControlCard accent={accent} title={isHome ? "TEAM A" : "TEAM B"}>
@@ -1163,7 +1205,6 @@ function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreCh
                         onKeyDown={(e) => e.key === "Enter" && onCommitName()}
                         onFocus={onFocus}
                         placeholder="Enter team name..."
-                        // maxLength={isHome ? 20 : 100}
                         className={`field-input${isHome ? "" : " amber"}`}
                     />
                 </div>
@@ -1184,19 +1225,80 @@ function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreCh
                         <button className={`btn score-adj-btn score-adj-btn--plus-${isHome ? "cyan" : "amber"}`} onClick={() => onAdjustScore(100)}>+</button>
                     </div>
 
-                    <QuickButtons
-                        amounts={QUICK_AMOUNTS}
-                        label="QUICK ADD"
-                        onAdjust={onAdjustScore}
-                        variant={isHome ? "cyan" : "amber"}
-                    />
+                    {/* Correct / Wrong / Pass */}
+                    <div style={{ marginTop: 14 }}>
+                        <span className="field-label">CORRECT / WRONG / PASS</span>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 6 }}>
+                            {/* Correct */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={correctVal}
+                                    onChange={(e) => setCorrectVal(e.target.value)}
+                                    onFocus={onFocus}
+                                    style={{ background: "var(--surface3)", border: "1px solid rgba(50, 205, 50, .2)", borderRadius: 6, color: "rgba(50, 205, 50, .6)", padding: "5px 8px", fontSize: 13, width: "100%", textAlign: "center" }}
+                                />
+                                <button
+                                    className="btn"
+                                    onClick={() => onAdjustScore(Math.abs(parseInt(correctVal) || 0))}
+                                    style={{ background: "rgba(0,229,160,0.15)", border: "1px solid limeGreen", color: "limeGreen", padding: "7px 4px", fontSize: 12, fontWeight: 700 }}
+                                >
+                                    ✓ CORRECT
+                                </button>
+                            </div>
+                            {/* Wrong */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={wrongVal}
+                                    onChange={(e) => setWrongVal(e.target.value)}
+                                    onFocus={onFocus}
+                                    style={{ background: "var(--surface3)", border: "1px solid rgba(255,64,96,0.4)", borderRadius: 6, color: "var(--red)", padding: "5px 8px", fontSize: 13, width: "100%", textAlign: "center" }}
+                                />
+                                <button
+                                    className="btn"
+                                    onClick={() => onAdjustScore(-(Math.abs(parseInt(wrongVal) || 0)))}
+                                    style={{ background: "rgba(255,64,96,0.15)", border: "1px solid var(--red)", color: "var(--red)", padding: "7px 4px", fontSize: 12, fontWeight: 700 }}
+                                >
+                                    ✗ WRONG
+                                </button>
+                            </div>
+                            {/* Pass */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={passVal}
+                                    onChange={(e) => setPassVal(e.target.value)}
+                                    onFocus={onFocus}
+                                    style={{ background: "var(--surface3)", border: "1px solid rgba(255,180,0,0.4)", borderRadius: 6, color: "var(--amber)", padding: "5px 8px", fontSize: 13, width: "100%", textAlign: "center" }}
+                                />
+                                <button
+                                    className="btn"
+                                    onClick={() => onAdjustScore(-(Math.abs(parseInt(passVal) || 0)))}
+                                    style={{ background: "rgba(255,180,0,0.15)", border: "1px solid var(--amber)", color: "var(--amber)", padding: "7px 4px", fontSize: 12, fontWeight: 700 }}
+                                >
+                                    → PASS
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
-                    <QuickButtons
-                        amounts={NEG_AMOUNTS}
-                        label="QUICK SUBTRACT"
-                        onAdjust={onAdjustScore}
-                        variant="neg"
-                    />
+                    {/*<QuickButtons*/}
+                    {/*    amounts={QUICK_AMOUNTS}*/}
+                    {/*    label="QUICK ADD"*/}
+                    {/*    onAdjust={onAdjustScore}*/}
+                    {/*    variant={isHome ? "cyan" : "amber"}*/}
+                    {/*/>*/}
+
+                    {/*<QuickButtons*/}
+                    {/*    amounts={NEG_AMOUNTS}*/}
+                    {/*    label="QUICK SUBTRACT"*/}
+                    {/*    onAdjust={onAdjustScore}*/}
+                    {/*    variant="neg"*/}
+                    {/*/>*/}
                 </div>
             </div>
         </ControlCard>
@@ -1210,26 +1312,26 @@ interface QuickButtonsProps {
     variant: string;
 }
 
-function QuickButtons({ amounts, label, onAdjust, variant }: QuickButtonsProps) {
-    return (
-        <>
-            <div style={{ marginBottom: 12 }}>
-                <span className="quick-label">{label}</span>
-                <div className="quick-buttons">
-                    {amounts.map((amount: number) => (
-                        <button
-                            key={amount}
-                            className={`btn quick-btn quick-btn--${variant}`}
-                            onClick={() => onAdjust(amount)}
-                        >
-                            {amount > 0 ? `+${amount}` : amount}
-                        </button>
-                    ))}
-                </div>
-            </div>
-        </>
-    );
-}
+// function QuickButtons({ amounts, label, onAdjust, variant }: QuickButtonsProps) {
+//     return (
+//         <>
+//             <div style={{ marginBottom: 12 }}>
+//                 <span className="quick-label">{label}</span>
+//                 <div className="quick-buttons">
+//                     {amounts.map((amount: number) => (
+//                         <button
+//                             key={amount}
+//                             className={`btn quick-btn quick-btn--${variant}`}
+//                             onClick={() => onAdjust(amount)}
+//                         >
+//                             {amount > 0 ? `+${amount}` : amount}
+//                         </button>
+//                     ))}
+//                 </div>
+//             </div>
+//         </>
+//     );
+// }
 
 interface PublishFooterProps {
     error: string | null;
@@ -1257,6 +1359,98 @@ function PublishFooter({ error, saved, saving, onPublish, onReset }: PublishFoot
             </button>
             <button className="btn reset-btn" onClick={onReset}>
                 Reset All
+            </button>
+        </div>
+    );
+}
+
+const SPINS_QUICK_ADD = [50, 100, 150, 250, 500, 750, 1000,2000,2500];
+const SPINS_QUICK_NEG = [-50, -100, -150, -250, -500, -750, -1000,-2000,-2500];
+
+function SpinsPanel({ teamAName, teamBName, onAddToMain }: { teamAName: string; teamBName: string; onAddToMain: (a: number, b: number) => Promise<void> }) {
+    const [scoreA, setScoreA] = useState(0);
+    const [scoreB, setScoreB] = useState(0);
+    const [draftA, setDraftA] = useState("0");
+    const [draftB, setDraftB] = useState("0");
+
+    const adjustA = (amt: number) => { const n = scoreA + amt; setScoreA(n); setDraftA(n.toString()); };
+    const adjustB = (amt: number) => { const n = scoreB + amt; setScoreB(n); setDraftB(n.toString()); };
+
+    const addToMain = async () => {
+        await onAddToMain(scoreA, scoreB);
+        setScoreA(0); setDraftA("0");
+        setScoreB(0); setDraftB("0");
+    };
+
+    const teamStyle = (accent: string): React.CSSProperties => ({
+        flex: 1, background: "var(--surface)", border: `1px solid ${accent}33`, borderRadius: 12, padding: 20,
+    });
+
+    const inputStyle = (accent: string): React.CSSProperties => ({
+        background: "var(--surface3)", border: `1px solid ${accent}66`, borderRadius: 8,
+        color: accent, padding: "10px 14px", fontSize: 28, fontFamily: "'Bebas Neue', sans-serif",
+        width: "100%", textAlign: "center",
+    });
+
+    return (
+        <div style={{ padding: 24, maxWidth: 1200, width: "100%", margin: "0 auto" }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.1em", marginBottom: 20 }}>
+                🎰 3 SPINS SCORES
+            </div>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                {/* Team A */}
+                <div style={teamStyle("var(--cyan)")}>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--cyan)", marginBottom: 12 }}>{teamAName || "TEAM A"}</div>
+                    <input
+                        type="number"
+                        style={inputStyle("var(--cyan)")}
+                        value={draftA}
+                        onChange={(e) => { setDraftA(e.target.value); const v = parseInt(e.target.value); if (!isNaN(v)) setScoreA(v); }}
+                    />
+                    <div style={{ marginTop: 12 }}>
+                        <div style={{ fontSize: 11, color: "var(--text3)", letterSpacing: "0.1em", marginBottom: 6 }}>QUICK ADD</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {SPINS_QUICK_ADD.map(a => <button key={a} className="btn quick-btn quick-btn--cyan" onClick={() => adjustA(a)}>+{a}</button>)}
+                        </div>
+                    </div>
+                    <div style={{ marginTop: 10 }}>
+                        <div style={{ fontSize: 11, color: "var(--text3)", letterSpacing: "0.1em", marginBottom: 6 }}>QUICK SUBTRACT</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {SPINS_QUICK_NEG.map(a => <button key={a} className="btn quick-btn quick-btn--neg" onClick={() => adjustA(a)}>{a}</button>)}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Team B */}
+                <div style={teamStyle("var(--amber)")}>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--amber)", marginBottom: 12 }}>{teamBName || "TEAM B"}</div>
+                    <input
+                        type="number"
+                        style={inputStyle("var(--amber)")}
+                        value={draftB}
+                        onChange={(e) => { setDraftB(e.target.value); const v = parseInt(e.target.value); if (!isNaN(v)) setScoreB(v); }}
+                    />
+                    <div style={{ marginTop: 12 }}>
+                        <div style={{ fontSize: 11, color: "var(--text3)", letterSpacing: "0.1em", marginBottom: 6 }}>QUICK ADD</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {SPINS_QUICK_ADD.map(a => <button key={a} className="btn quick-btn quick-btn--amber" onClick={() => adjustB(a)}>+{a}</button>)}
+                        </div>
+                    </div>
+                    <div style={{ marginTop: 10 }}>
+                        <div style={{ fontSize: 11, color: "var(--text3)", letterSpacing: "0.1em", marginBottom: 6 }}>QUICK SUBTRACT</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {SPINS_QUICK_NEG.map(a => <button key={a} className="btn quick-btn quick-btn--neg" onClick={() => adjustB(a)}>{a}</button>)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button
+                className="btn"
+                onClick={addToMain}
+                style={{ marginTop: 24, width: "100%", padding: "14px", fontSize: 15, fontWeight: 700, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.1em", background: "rgba(0,229,160,0.15)", border: "1px solid var(--cyan)", color: "var(--cyan)" }}
+            >
+                ➕ ADD TO OTHER MARKS
             </button>
         </div>
     );
