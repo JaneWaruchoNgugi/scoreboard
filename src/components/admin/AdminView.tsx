@@ -1305,12 +1305,12 @@ function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreCh
     );
 }
 
-interface QuickButtonsProps {
-    amounts: number[];
-    label: string;
-    onAdjust: (amount: number) => void;
-    variant: string;
-}
+// interface QuickButtonsProps {
+//     amounts: number[];
+//     label: string;
+//     onAdjust: (amount: number) => void;
+//     variant: string;
+// }
 
 // function QuickButtons({ amounts, label, onAdjust, variant }: QuickButtonsProps) {
 //     return (
