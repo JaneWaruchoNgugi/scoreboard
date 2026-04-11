@@ -173,6 +173,7 @@ export function QuestionsEditorView({ onBack }: Props) {
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 padding: "16px 24px", borderBottom: "1px solid rgba(255,255,255,0.05)",
                 background: "var(--surface)", flexWrap: "wrap", gap: 12,
+                position: "sticky", top: 0, zIndex: 50,
             }}>
                 <button className="btn" onClick={onBack}
                     style={{ background: "var(--surface2)", color: "var(--text2)", padding: "9px 18px", fontSize: 13, border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -188,7 +189,7 @@ export function QuestionsEditorView({ onBack }: Props) {
             </div>
 
             {/* Tabs */}
-            <div className="admin-tabs" style={{ padding: "0 24px", background: "var(--surface)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+            <div className="admin-tabs" style={{ padding: "0 24px", background: "var(--surface)", borderBottom: "1px solid rgba(255,255,255,0.05)", position: "sticky", top: 69, zIndex: 49 }}>
                 {([1, 2, 3] as RoundTab[]).map((r) => (
                     <button key={r} className={`admin-tab ${tab === r ? "admin-tab--active" : ""}`} onClick={() => setTab(r)}>
                         Round {r}
