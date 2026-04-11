@@ -34,7 +34,7 @@ export function AdminView({ onBack }: Props) {
         teamAName: DEFAULT_STATE.teamA.name,
         teamBName: DEFAULT_STATE.teamB.name,
     });
-    const [activeTab, setActiveTab] = useState<"timer" | "categories"|"preview" | "teams" | "bank" | "history" | "spins">("teams");
+    const [activeTab, setActiveTab] = useState<"timer" | "categories"|"preview" | "teams" | "bank" | "history">("teams");
 
     const {  pauseAllSounds } = useAudioControl(isMuted);
     const teamANameRef = useRef<HTMLInputElement | null>(null);
@@ -309,29 +309,31 @@ export function AdminView({ onBack }: Props) {
                                 pendingQuestion={pendingQuestion}
                                 setPendingQuestion={setPendingQuestion}
                             />
-                        <div className="bottom-section">
-                            <TeamsCard
-                                state={state}
-                                drafts={drafts}
-                                setDrafts={setDrafts}
-                                onCommitTeamName={commitTeamName}
-                                onScoreChange={handleScoreChange}
-                                onAdjustScore={adjustScore}
-                                onFocus={handleFocus}
-                                teamANameRef={teamANameRef}
-                                teamAScoreRef={teamAScoreRef}
-                                onClearScores={handleClearScores}
-                            />
-                            <PublishFooter
-                                error={error}
-                                saved={saved}
-                                saving={saving}
-                                onPublish={handlePublish}
-                                onReset={handleTimerReset}
-                            />
-                        </div>
-
-
+                        <TeamsSubTabs
+                            state={state}
+                            drafts={drafts}
+                            setDrafts={setDrafts}
+                            onCommitTeamName={commitTeamName}
+                            onScoreChange={handleScoreChange}
+                            onAdjustScore={adjustScore}
+                            onFocus={handleFocus}
+                            teamANameRef={teamANameRef}
+                            teamAScoreRef={teamAScoreRef}
+                            onClearScores={handleClearScores}
+                            onAddSpinsToMain={async (a, b) => {
+                                await pushState({
+                                    ...state,
+                                    teamA: { ...state.teamA, score: state.teamA.score + a },
+                                    teamB: { ...state.teamB, score: state.teamB.score + b },
+                                    lastUpdated: Date.now(),
+                                });
+                            }}
+                            error={error}
+                            saved={saved}
+                            saving={saving}
+                            onPublish={handlePublish}
+                            onReset={handleTimerReset}
+                        />
                     </div>
                 </div>
                 )}
@@ -353,20 +355,6 @@ export function AdminView({ onBack }: Props) {
                 )}
                 {activeTab === "history" && (
                     <ScoreHistoryPanel />
-                )}
-                {activeTab === "spins" && (
-                    <SpinsPanel
-                        teamAName={state.teamA.name}
-                        teamBName={state.teamB.name}
-                        onAddToMain={async (a, b) => {
-                            await pushState({
-                                ...state,
-                                teamA: { ...state.teamA, score: state.teamA.score + a },
-                                teamB: { ...state.teamB, score: state.teamB.score + b },
-                                lastUpdated: Date.now(),
-                            });
-                        }}
-                    />
                 )}
 
             </div>
@@ -406,15 +394,14 @@ function AdminTopBar({ onBack }: TopBarProps) {
 }
 
 interface TabsProps {
-    activeTab: "timer" | "categories" | "teams" | "bank" | "preview" | "history" | "spins";
-    onTabChange: (tab: "timer" | "categories" | "teams" | "bank" | "preview" | "history" | "spins") => void;
+    activeTab: "timer" | "categories" | "teams" | "bank" | "preview" | "history";
+    onTabChange: (tab: "timer" | "categories" | "teams" | "bank" | "preview" | "history") => void;
 }
 
 function AdminTabs({ activeTab, onTabChange }: TabsProps) {
     const tabs = [
         { id: "preview" as const, icon: "👥", label: "Preview Scores" },
         { id: "teams" as const, icon: "⏱️", label: "TEAMS" },
-        { id: "spins" as const, icon: "🎰", label: "3 SPINS SCORES" },
         { id: "history" as const, icon: "📊", label: "SCORE HISTORY" },
     ];
 
@@ -1364,23 +1351,74 @@ function PublishFooter({ error, saved, saving, onPublish, onReset }: PublishFoot
     );
 }
 
-const SPINS_QUICK_ADD = [50, 100, 150, 250, 500, 750, 1000,2000,2500];
-const SPINS_QUICK_NEG = [-50, -100, -150, -250, -500, -750, -1000,-2000,-2500];
-
-function SpinsPanel({ teamAName, teamBName, onAddToMain }: { teamAName: string; teamBName: string; onAddToMain: (a: number, b: number) => Promise<void> }) {
-    const [scoreA, setScoreA] = useState(0);
-    const [scoreB, setScoreB] = useState(0);
+function TeamsSubTabs({
+    state, drafts, setDrafts, onCommitTeamName, onScoreChange, onAdjustScore,
+    onFocus, teamANameRef, teamAScoreRef, onClearScores, onAddSpinsToMain,
+    error, saved, saving, onPublish, onReset,
+}: TeamsCardProps & {
+    onAddSpinsToMain: (a: number, b: number) => Promise<void>;
+    error: string | null; saved: boolean; saving: boolean;
+    onPublish: () => Promise<void>; onReset: () => Promise<void>;
+}) {
+    const [sub, setSub] = useState<"scores" | "spins">("scores");
+    const [spinsA, setSpinsA] = useState(0);
+    const [spinsB, setSpinsB] = useState(0);
     const [draftA, setDraftA] = useState("0");
     const [draftB, setDraftB] = useState("0");
 
-    const adjustA = (amt: number) => { const n = scoreA + amt; setScoreA(n); setDraftA(n.toString()); };
-    const adjustB = (amt: number) => { const n = scoreB + amt; setScoreB(n); setDraftB(n.toString()); };
+    return (
+        <div className="bottom-section">
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                {(["scores", "spins"] as const).map((t) => (
+                    <button key={t} className={`btn admin-tab ${sub === t ? "admin-tab--active" : ""}`} onClick={() => setSub(t)}>
+                        {t === "scores" ? "📊 SCORES UPDATE" : "🎰 3 SPINS SCORES"}
+                    </button>
+                ))}
+            </div>
+            {sub === "scores" && (
+                <>
+                    <TeamsCard
+                        state={state} drafts={drafts} setDrafts={setDrafts}
+                        onCommitTeamName={onCommitTeamName} onScoreChange={onScoreChange}
+                        onAdjustScore={onAdjustScore} onFocus={onFocus}
+                        teamANameRef={teamANameRef} teamAScoreRef={teamAScoreRef}
+                        onClearScores={onClearScores}
+                    />
+                    <PublishFooter error={error} saved={saved} saving={saving} onPublish={onPublish} onReset={onReset} />
+                </>
+            )}
+            {sub === "spins" && (
+                <SpinsPanel
+                    teamAName={state.teamA.name}
+                    teamBName={state.teamB.name}
+                    scoreA={spinsA} draftA={draftA}
+                    scoreB={spinsB} draftB={draftB}
+                    onChangeA={(score, draft) => { setSpinsA(score); setDraftA(draft); }}
+                    onChangeB={(score, draft) => { setSpinsB(score); setDraftB(draft); }}
+                    onAddToMain={async () => {
+                        await onAddSpinsToMain(spinsA, spinsB);
+                        setSpinsA(0); setDraftA("0");
+                        setSpinsB(0); setDraftB("0");
+                    }}
+                />
+            )}
+        </div>
+    );
+}
 
-    const addToMain = async () => {
-        await onAddToMain(scoreA, scoreB);
-        setScoreA(0); setDraftA("0");
-        setScoreB(0); setDraftB("0");
-    };
+const SPINS_QUICK_ADD = [50, 100, 150, 250, 500, 750, 1000,1500,2000,2500];
+const SPINS_QUICK_NEG = [-50, -100, -150, -250, -500, -750, -1000,-1500,-2000,-2500];
+
+function SpinsPanel({ teamAName, teamBName, scoreA, draftA, scoreB, draftB, onChangeA, onChangeB, onAddToMain }: {
+    teamAName: string; teamBName: string;
+    scoreA: number; draftA: string;
+    scoreB: number; draftB: string;
+    onChangeA: (score: number, draft: string) => void;
+    onChangeB: (score: number, draft: string) => void;
+    onAddToMain: () => Promise<void>;
+}) {
+    const adjustA = (amt: number) => { const n = scoreA + amt; onChangeA(n, n.toString()); };
+    const adjustB = (amt: number) => { const n = scoreB + amt; onChangeB(n, n.toString()); };
 
     const teamStyle = (accent: string): React.CSSProperties => ({
         flex: 1, background: "var(--surface)", border: `1px solid ${accent}33`, borderRadius: 12, padding: 20,
@@ -1405,7 +1443,7 @@ function SpinsPanel({ teamAName, teamBName, onAddToMain }: { teamAName: string; 
                         type="number"
                         style={inputStyle("var(--cyan)")}
                         value={draftA}
-                        onChange={(e) => { setDraftA(e.target.value); const v = parseInt(e.target.value); if (!isNaN(v)) setScoreA(v); }}
+                        onChange={(e) => { onChangeA(isNaN(parseInt(e.target.value)) ? 0 : parseInt(e.target.value), e.target.value); }}
                     />
                     <div style={{ marginTop: 12 }}>
                         <div style={{ fontSize: 11, color: "var(--text3)", letterSpacing: "0.1em", marginBottom: 6 }}>QUICK ADD</div>
@@ -1428,7 +1466,7 @@ function SpinsPanel({ teamAName, teamBName, onAddToMain }: { teamAName: string; 
                         type="number"
                         style={inputStyle("var(--amber)")}
                         value={draftB}
-                        onChange={(e) => { setDraftB(e.target.value); const v = parseInt(e.target.value); if (!isNaN(v)) setScoreB(v); }}
+                        onChange={(e) => { onChangeB(isNaN(parseInt(e.target.value)) ? 0 : parseInt(e.target.value), e.target.value); }}
                     />
                     <div style={{ marginTop: 12 }}>
                         <div style={{ fontSize: 11, color: "var(--text3)", letterSpacing: "0.1em", marginBottom: 6 }}>QUICK ADD</div>
@@ -1447,7 +1485,7 @@ function SpinsPanel({ teamAName, teamBName, onAddToMain }: { teamAName: string; 
 
             <button
                 className="btn"
-                onClick={addToMain}
+                onClick={onAddToMain}
                 style={{ marginTop: 24, width: "100%", padding: "14px", fontSize: 15, fontWeight: 700, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.1em", background: "rgba(0,229,160,0.15)", border: "1px solid var(--cyan)", color: "var(--cyan)" }}
             >
                 ➕ ADD TO OTHER MARKS
