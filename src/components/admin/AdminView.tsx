@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import "../shared/GlobalStyles.css";
 import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
 import { ControlCard } from "../shared/ControlCard";
@@ -115,6 +115,8 @@ export function AdminView({ onBack }: Props) {
     }, [state.timerRunning, state.timerStartedAt, state.timerDuration, state.timerElapsed]);
 
     // State management
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     const pushState = async (next: ScoreboardState) => {
         setState(next);
         setSaved(false);
@@ -127,34 +129,57 @@ export function AdminView({ onBack }: Props) {
         }
     };
 
+    // Debounced save — used for rapid score adjustments to avoid a Firebase write per click
+    const debouncedSave = useCallback((next: ScoreboardState) => {
+        setState(next);
+        setSaved(false);
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(async () => {
+            try {
+                await saveState(next);
+                setSaved(true);
+                setTimeout(() => setSaved(false), 2000);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : "Failed to save");
+            }
+        }, 600);
+    }, []);
+
     const handleFocus = (e: React.FocusEvent<HTMLInputElement | null>) => e.target.select();
 
     // Team management
     const commitTeamName = (side: TeamSide) => {
         const name = side === "A" ? drafts.teamAName : drafts.teamBName;
-        if (side === "A") setState((p) => ({ ...p, teamA: { ...p.teamA, name } }));
-        else setState((p) => ({ ...p, teamB: { ...p.teamB, name } }));
-        setSaved(false);
+        setState((p) => {
+            const next = side === "A"
+                ? { ...p, teamA: { ...p.teamA, name } }
+                : { ...p, teamB: { ...p.teamB, name } };
+            debouncedSave(next);
+            return next;
+        });
     };
 
     const handleScoreChange = (side: TeamSide, val: string) => {
         const v = val === "" ? 0 : parseInt(val, 10);
         if (isNaN(v)) return;
-        // Allow negative values, but keep within a reasonable range
         const clamped = Math.max(-999999, Math.min(999999, v));
-        if (side === "A")
-            setState((p) => ({ ...p, teamA: { ...p.teamA, score: clamped } }));
-        else
-            setState((p) => ({ ...p, teamB: { ...p.teamB, score: clamped } }));
-        setSaved(false);
+        setState((p) => {
+            const next = side === "A"
+                ? { ...p, teamA: { ...p.teamA, score: clamped } }
+                : { ...p, teamB: { ...p.teamB, score: clamped } };
+            debouncedSave(next);
+            return next;
+        });
     };
 
     const adjustScore = (amount: number, side: TeamSide) => {
-        if (side === "A")
-            setState((p) => ({ ...p, teamA: { ...p.teamA, score: Math.max(-999999, Math.min(999999, p.teamA.score + amount)) } }));
-        else
-            setState((p) => ({ ...p, teamB: { ...p.teamB, score: Math.max(-999999, Math.min(999999, p.teamB.score + amount)) } }));
-        setSaved(false);
+        setState((p) => {
+            const next = side === "A"
+                ? { ...p, teamA: { ...p.teamA, score: Math.max(-999999, Math.min(999999, p.teamA.score + amount)) } }
+                : { ...p, teamB: { ...p.teamB, score: Math.max(-999999, Math.min(999999, p.teamB.score + amount)) } };
+            debouncedSave(next);
+            return next;
+        });
     };
 
     // Timer management
@@ -1131,6 +1156,7 @@ function TeamsCard({
                 nameRef={teamANameRef}
                 scoreRef={teamAScoreRef}
                 accent="var(--cyan)"
+                round={state.timerRound}
             />
             <TeamCard
                 side="B"
@@ -1144,6 +1170,7 @@ function TeamsCard({
                 nameRef={null}
                 scoreRef={null}
                 accent="var(--amber)"
+                round={state.timerRound}
             />
             <button
                 className="btn"
@@ -1171,13 +1198,35 @@ interface TeamCardProps {
     nameRef: React.RefObject<HTMLInputElement | null> | null;
     scoreRef: React.RefObject<HTMLInputElement | null> | null;
     accent: string;
+    round: number;
 }
 
-function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreChange, onAdjustScore, onFocus, nameRef, scoreRef, accent }: TeamCardProps) {
+function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreChange, onAdjustScore, onFocus, nameRef, scoreRef, accent, round }: TeamCardProps) {
     const isHome = side === "A";
-    const [correctVal, setCorrectVal] = useState("100");
-    const [wrongVal, setWrongVal] = useState("50");
-    const [passVal, setPassVal] = useState("50");
+
+    // Round 1 bonus: null | 50 | 100
+    const [r1Bonus, setR1Bonus] = useState<0 | 50 | 100>(0);
+    // Round 2 double chance
+    const [doubleChance, setDoubleChance] = useState(false);
+
+    const correct = round === 1 ? 100 + r1Bonus : round === 2 ? (doubleChance ? 1000 : 500) : 0;
+    const penalty = round === 1 ? -50 : round === 2 ? (doubleChance ? -500 : -250) : 0;
+
+    const btn = (label: string, amt: number, color: string, bg: string) => (
+        <button className="btn" onClick={() => onAdjustScore(amt)}
+            style={{ flex: 1, padding: "10px 4px", fontSize: 13, fontWeight: 700, background: bg, border: `1px solid ${color}`, color }}>
+            {label}<br /><span style={{ fontSize: 11, opacity: 0.8 }}>{amt > 0 ? `+${amt}` : amt}</span>
+        </button>
+    );
+
+    const bonusBtn = (label: string, active: boolean, onClick: () => void) => (
+        <button className="btn" onClick={onClick} style={{
+            flex: 1, padding: "6px 4px", fontSize: 11, fontWeight: 700,
+            background: active ? "rgba(255,215,0,0.2)" : "var(--surface3)",
+            border: `1px solid ${active ? "gold" : "rgba(255,255,255,0.1)"}`,
+            color: active ? "gold" : "var(--text3)",
+        }}>{label}</button>
+    );
 
     return (
         <ControlCard accent={accent} title={isHome ? "TEAM A" : "TEAM B"}>
@@ -1213,65 +1262,35 @@ function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreCh
                     </div>
 
                     {/* Correct / Wrong / Pass */}
-                    <div style={{ marginTop: 14 }}>
-                        <span className="field-label">CORRECT / WRONG / PASS</span>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 6 }}>
-                            {/* Correct */}
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    value={correctVal}
-                                    onChange={(e) => setCorrectVal(e.target.value)}
-                                    onFocus={onFocus}
-                                    style={{ background: "var(--surface3)", border: "1px solid rgba(50, 205, 50, .2)", borderRadius: 6, color: "rgba(50, 205, 50, .6)", padding: "5px 8px", fontSize: 13, width: "100%", textAlign: "center" }}
-                                />
-                                <button
-                                    className="btn"
-                                    onClick={() => onAdjustScore(Math.abs(parseInt(correctVal) || 0))}
-                                    style={{ background: "rgba(0,229,160,0.15)", border: "1px solid limeGreen", color: "limeGreen", padding: "7px 4px", fontSize: 12, fontWeight: 700 }}
-                                >
-                                    ✓ CORRECT
-                                </button>
+                    {round !== 3 && (
+                        <div style={{ marginTop: 14 }}>
+                            {/* Round 1 bonus selector */}
+                            {round === 1 && (
+                                <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text3)", alignSelf: "center", letterSpacing: "0.1em" }}>BONUS:</span>
+                                    {bonusBtn("NONE", r1Bonus === 0, () => setR1Bonus(0))}
+                                    {bonusBtn("+50", r1Bonus === 50, () => setR1Bonus(r1Bonus === 50 ? 0 : 50))}
+                                    {bonusBtn("+100", r1Bonus === 100, () => setR1Bonus(r1Bonus === 100 ? 0 : 100))}
+                                </div>
+                            )}
+                            {/* Round 2 double chance toggle */}
+                            {round === 2 && (
+                                <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text3)", alignSelf: "center", letterSpacing: "0.1em" }}>BONUS:</span>
+                                    {bonusBtn("NONE", !doubleChance, () => setDoubleChance(false))}
+                                    {bonusBtn("⚡ DOUBLE CHANCE", doubleChance, () => setDoubleChance(!doubleChance))}
+                                </div>
+                            )}
+                            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: "0.1em", color: "var(--text3)", marginBottom: 8 }}>
+                                ROUND {round} — CORRECT +{correct} · WRONG/PASS {penalty}
                             </div>
-                            {/* Wrong */}
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    value={wrongVal}
-                                    onChange={(e) => setWrongVal(e.target.value)}
-                                    onFocus={onFocus}
-                                    style={{ background: "var(--surface3)", border: "1px solid rgba(255,64,96,0.4)", borderRadius: 6, color: "var(--red)", padding: "5px 8px", fontSize: 13, width: "100%", textAlign: "center" }}
-                                />
-                                <button
-                                    className="btn"
-                                    onClick={() => onAdjustScore(-(Math.abs(parseInt(wrongVal) || 0)))}
-                                    style={{ background: "rgba(255,64,96,0.15)", border: "1px solid var(--red)", color: "var(--red)", padding: "7px 4px", fontSize: 12, fontWeight: 700 }}
-                                >
-                                    ✗ WRONG
-                                </button>
-                            </div>
-                            {/* Pass */}
-                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    value={passVal}
-                                    onChange={(e) => setPassVal(e.target.value)}
-                                    onFocus={onFocus}
-                                    style={{ background: "var(--surface3)", border: "1px solid rgba(255,180,0,0.4)", borderRadius: 6, color: "var(--amber)", padding: "5px 8px", fontSize: 13, width: "100%", textAlign: "center" }}
-                                />
-                                <button
-                                    className="btn"
-                                    onClick={() => onAdjustScore(-(Math.abs(parseInt(passVal) || 0)))}
-                                    style={{ background: "rgba(255,180,0,0.15)", border: "1px solid var(--amber)", color: "var(--amber)", padding: "7px 4px", fontSize: 12, fontWeight: 700 }}
-                                >
-                                    → PASS
-                                </button>
+                            <div style={{ display: "flex", gap: 6 }}>
+                                {btn("✓ CORRECT", correct, "var(--cyan)", "rgba(0,229,160,0.12)")}
+                                {btn("✗ WRONG", penalty, "var(--red)", "rgba(255,64,96,0.12)")}
+                                {btn("→ PASS", penalty, "var(--amber)", "rgba(255,180,0,0.12)")}
                             </div>
                         </div>
-                    </div>
+                    )}
 
                     {/*<QuickButtons*/}
                     {/*    amounts={QUICK_AMOUNTS}*/}
@@ -1361,10 +1380,10 @@ function TeamsSubTabs({
     onPublish: () => Promise<void>; onReset: () => Promise<void>;
 }) {
     const [sub, setSub] = useState<"scores" | "spins">("scores");
-    const [spinsA, setSpinsA] = useState(0);
-    const [spinsB, setSpinsB] = useState(0);
-    const [draftA, setDraftA] = useState("0");
-    const [draftB, setDraftB] = useState("0");
+
+    // Lifted spins state so it survives tab switches
+    const [spinsStateA, setSpinsStateA] = useState<SpinTeamState>({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
+    const [spinsStateB, setSpinsStateB] = useState<SpinTeamState>({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
 
     return (
         <div className="bottom-section">
@@ -1377,6 +1396,7 @@ function TeamsSubTabs({
             </div>
             {sub === "scores" && (
                 <>
+
                     <TeamsCard
                         state={state} drafts={drafts} setDrafts={setDrafts}
                         onCommitTeamName={onCommitTeamName} onScoreChange={onScoreChange}
@@ -1391,14 +1411,12 @@ function TeamsSubTabs({
                 <SpinsPanel
                     teamAName={state.teamA.name}
                     teamBName={state.teamB.name}
-                    scoreA={spinsA} draftA={draftA}
-                    scoreB={spinsB} draftB={draftB}
-                    onChangeA={(score, draft) => { setSpinsA(score); setDraftA(draft); }}
-                    onChangeB={(score, draft) => { setSpinsB(score); setDraftB(draft); }}
+                    stateA={spinsStateA} stateB={spinsStateB}
+                    onChangeA={setSpinsStateA} onChangeB={setSpinsStateB}
                     onAddToMain={async () => {
-                        await onAddSpinsToMain(spinsA, spinsB);
-                        setSpinsA(0); setDraftA("0");
-                        setSpinsB(0); setDraftB("0");
+                        await onAddSpinsToMain(spinsStateA.banked, spinsStateB.banked);
+                        setSpinsStateA({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
+                        setSpinsStateB({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
                     }}
                 />
             )}
@@ -1406,89 +1424,226 @@ function TeamsSubTabs({
     );
 }
 
-const SPINS_QUICK_ADD = [50, 100, 150, 250, 500, 750, 1000,1500,2000,2500];
-const SPINS_QUICK_NEG = [-50, -100, -150, -250, -500, -750, -1000,-1500,-2000,-2500];
+// ── Round Scoring Panel ──────────────────────────────────────────────────────
+// Shows correct/wrong/pass buttons with the right points for the current round
+// function RoundScoringPanel({ round, teamAName, teamBName, onAdjustScore }: {
+//     round: number; teamAName: string; teamBName: string;
+//     onAdjustScore: (amount: number, side: TeamSide) => void;
+// }) {
+//     const correct = round === 1 ? 100 : round === 2 ? 500 : 0;
+//     const penalty = round === 1 ? -50 : round === 2 ? -250 : 0;
+//     if (round === 3) return null; // Round 3 handled by spins tab
+//
+//     const btn = (label: string, amt: number, side: TeamSide, color: string, bg: string) => (
+//         <button className="btn" onClick={() => onAdjustScore(amt, side)}
+//             style={{ flex: 1, padding: "10px 4px", fontSize: 13, fontWeight: 700, background: bg, border: `1px solid ${color}`, color }}>
+//             {label}<br /><span style={{ fontSize: 11, opacity: 0.8 }}>{amt > 0 ? `+${amt}` : amt}</span>
+//         </button>
+//     );
+//
+//     return (
+//         <div style={{ background: "var(--surface)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 16, marginBottom: 12 }}>
+//             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "0.1em", color: "var(--text3)", marginBottom: 10 }}>
+//                 ROUND {round} SCORING — CORRECT +{correct} · WRONG/PASS {penalty}
+//             </div>
+//             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+//                 {/* Team A */}
+//                 <div>
+//                     <div style={{ fontSize: 11, color: "var(--cyan)", fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>{teamAName || "TEAM A"}</div>
+//                     <div style={{ display: "flex", gap: 6 }}>
+//                         {btn("✓ CORRECT", correct, "A", "var(--cyan)", "rgba(0,229,160,0.12)")}
+//                         {btn("✗ WRONG", penalty, "A", "var(--red)", "rgba(255,64,96,0.12)")}
+//                         {btn("→ PASS", penalty, "A", "var(--amber)", "rgba(255,180,0,0.12)")}
+//                     </div>
+//                 </div>
+//                 {/* Team B */}
+//                 <div>
+//                     <div style={{ fontSize: 11, color: "var(--amber)", fontFamily: "'Bebas Neue', sans-serif", marginBottom: 6 }}>{teamBName || "TEAM B"}</div>
+//                     <div style={{ display: "flex", gap: 6 }}>
+//                         {btn("✓ CORRECT", correct, "B", "var(--cyan)", "rgba(0,229,160,0.12)")}
+//                         {btn("✗ WRONG", penalty, "B", "var(--red)", "rgba(255,64,96,0.12)")}
+//                         {btn("→ PASS", penalty, "B", "var(--amber)", "rgba(255,180,0,0.12)")}
+//                     </div>
+//                 </div>
+//             </div>
+//         </div>
+//     );
+// }
 
-function SpinsPanel({ teamAName, teamBName, scoreA, draftA, scoreB, draftB, onChangeA, onChangeB, onAddToMain }: {
-    teamAName: string; teamBName: string;
-    scoreA: number; draftA: string;
-    scoreB: number; draftB: string;
-    onChangeA: (score: number, draft: string) => void;
-    onChangeB: (score: number, draft: string) => void;
-    onAddToMain: () => Promise<void>;
+// ── 3 Spins Panel ────────────────────────────────────────────────────────────
+const SPIN_PRESETS = [50, 100, 150, 250, 500, 750, 1000, 1500, 2000, 2500];
+
+interface SpinTeamState {
+    spins: [number | null, number | null, number | null]; // spin result for each spin (null = not spun yet)
+    banked: number;       // points that will be added to main score
+    forfeited: boolean;   // lost all spin points due to wrong answer
+    bonusUsed: boolean;   // bonus question already used
+}
+
+function SpinTeamCard({ name, accent, st, onChange }: {
+    name: string; accent: string;
+    st: SpinTeamState;
+    onChange: (s: SpinTeamState) => void;
 }) {
-    const adjustA = (amt: number) => { const n = scoreA + amt; onChangeA(n, n.toString()); };
-    const adjustB = (amt: number) => { const n = scoreB + amt; onChangeB(n, n.toString()); };
+    const [spinInput, setSpinInput] = useState<[string, string, string]>(["", "", ""]);
 
-    const teamStyle = (accent: string): React.CSSProperties => ({
-        flex: 1, background: "var(--surface)", border: `1px solid ${accent}33`, borderRadius: 12, padding: 20,
-    });
+    const setSpinVal = (i: 0|1|2, val: string) => {
+        const next: [string, string, string] = [...spinInput] as [string,string,string];
+        next[i] = val;
+        setSpinInput(next);
+    };
 
-    const inputStyle = (accent: string): React.CSSProperties => ({
-        background: "var(--surface3)", border: `1px solid ${accent}66`, borderRadius: 8,
-        color: accent, padding: "10px 14px", fontSize: 28, fontFamily: "'Bebas Neue', sans-serif",
-        width: "100%", textAlign: "center",
-    });
+    const spinResult = (i: 0|1|2) => parseInt(spinInput[i]) || 0;
+
+    // Which spin is active (next to play)
+    const activeSpinIdx = st.spins.findIndex(s => s === null) as 0|1|2|3;
+
+    const totalSpins = st.spins.reduce<number>((acc, s) => acc + (s ?? 0), 0);
+
+    const handleCorrect = (i: 0|1|2) => {
+        const pts = spinResult(i);
+        const newSpins: [number|null,number|null,number|null] = [...st.spins] as any;
+        newSpins[i] = pts;
+        const newBanked = newSpins.reduce<number>((a, s) => a + (s ?? 0), 0);
+        onChange({ ...st, spins: newSpins, banked: newBanked, forfeited: false });
+    };
+
+    const handleWrong = (i: 0|1|2) => {
+        // forfeit all spins played so far including this one
+        const newSpins: [number|null,number|null,number|null] = [...st.spins] as any;
+        newSpins[i] = spinResult(i); // record the spin value
+        onChange({ ...st, spins: newSpins, banked: 0, forfeited: true });
+    };
+
+    const handleBonus = (correct: boolean) => {
+        if (correct) {
+            // recover all forfeited spin points
+            const recovered = st.spins.reduce<number>((a, s) => a + (s ?? 0), 0);
+            onChange({ ...st, banked: recovered, forfeited: false, bonusUsed: true });
+        } else {
+            onChange({ ...st, bonusUsed: true });
+        }
+    };
+
+    const handleStop = () => {
+        // bank what's accumulated so far and stop spinning
+        onChange({ ...st, banked: totalSpins, forfeited: false });
+    };
+
+    const handleReset = () => {
+        setSpinInput(["", "", ""]);
+        onChange({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
+    };
+
+    const s = (i: 0|1|2) => {
+        const isActive = activeSpinIdx === i && !st.forfeited;
+        const isDone = st.spins[i] !== null;
+        const isLocked = activeSpinIdx > i || st.forfeited;
+        return (
+            <div key={i} style={{
+                background: isDone ? (st.forfeited ? "rgba(255,64,96,0.08)" : "rgba(0,229,160,0.08)") : "var(--surface2)",
+                border: `1px solid ${isDone ? (st.forfeited ? "var(--red)" : accent) : "rgba(255,255,255,0.08)"}`,
+                borderRadius: 10, padding: 12, opacity: isLocked && !isDone ? 0.4 : 1,
+            }}>
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: "var(--text3)", marginBottom: 8 }}>
+                    SPIN {i + 1} {isDone ? (st.forfeited ? "❌ FORFEITED" : `✓ ${st.spins[i]}pts`) : ""}
+                </div>
+                {/* Spin value input + presets */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
+                    {SPIN_PRESETS.map(p => (
+                        <button key={p} className="btn" disabled={!isActive}
+                            onClick={() => setSpinVal(i, p.toString())}
+                            style={{ padding: "3px 7px", fontSize: 11, background: spinInput[i] === p.toString() ? accent : "var(--surface3)", color: spinInput[i] === p.toString() ? "var(--bg)" : "var(--text3)", border: "none", borderRadius: 5 }}>
+                            {p}
+                        </button>
+                    ))}
+                </div>
+                <input type="number" disabled={!isActive} value={spinInput[i]}
+                    onChange={(e) => setSpinVal(i, e.target.value)}
+                    placeholder="or type spin result..."
+                    style={{ width: "100%", background: "var(--surface3)", border: `1px solid ${accent}44`, borderRadius: 6, color: accent, padding: "6px 10px", fontSize: 16, fontFamily: "'Bebas Neue', sans-serif", textAlign: "center", marginBottom: 8 }} />
+                {isActive && (
+                    <div style={{ display: "flex", gap: 6 }}>
+                        <button className="btn" onClick={() => handleCorrect(i)} disabled={!spinResult(i)}
+                            style={{ flex: 1, padding: "8px", fontSize: 12, fontWeight: 700, background: "rgba(0,229,160,0.15)", border: "1px solid var(--cyan)", color: "var(--cyan)" }}>
+                            ✓ CORRECT<br /><span style={{ fontSize: 10 }}>+{spinResult(i)}pts</span>
+                        </button>
+                        <button className="btn" onClick={() => handleWrong(i)} disabled={!spinResult(i)}
+                            style={{ flex: 1, padding: "8px", fontSize: 12, fontWeight: 700, background: "rgba(255,64,96,0.15)", border: "1px solid var(--red)", color: "var(--red)" }}>
+                            ✗ WRONG<br /><span style={{ fontSize: 10 }}>forfeit all</span>
+                        </button>
+                        {i > 0 && (
+                            <button className="btn" onClick={handleStop}
+                                style={{ flex: 1, padding: "8px", fontSize: 12, fontWeight: 700, background: "rgba(255,180,0,0.15)", border: "1px solid var(--amber)", color: "var(--amber)" }}>
+                                🛑 STOP<br /><span style={{ fontSize: 10 }}>bank {totalSpins}pts</span>
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     return (
-        <div style={{ padding: 24, maxWidth: 1200, width: "100%", margin: "0 auto" }}>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.1em", marginBottom: 20 }}>
-                🎰 3 SPINS SCORES
-            </div>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                {/* Team A */}
-                <div style={teamStyle("var(--cyan)")}>
-                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--cyan)", marginBottom: 12 }}>{teamAName || "TEAM A"}</div>
-                    <input
-                        type="number"
-                        style={inputStyle("var(--cyan)")}
-                        value={draftA}
-                        onChange={(e) => { onChangeA(isNaN(parseInt(e.target.value)) ? 0 : parseInt(e.target.value), e.target.value); }}
-                    />
-                    <div style={{ marginTop: 12 }}>
-                        <div style={{ fontSize: 11, color: "var(--text3)", letterSpacing: "0.1em", marginBottom: 6 }}>QUICK ADD</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                            {SPINS_QUICK_ADD.map(a => <button key={a} className="btn quick-btn quick-btn--cyan" onClick={() => adjustA(a)}>+{a}</button>)}
-                        </div>
-                    </div>
-                    <div style={{ marginTop: 10 }}>
-                        <div style={{ fontSize: 11, color: "var(--text3)", letterSpacing: "0.1em", marginBottom: 6 }}>QUICK SUBTRACT</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                            {SPINS_QUICK_NEG.map(a => <button key={a} className="btn quick-btn quick-btn--neg" onClick={() => adjustA(a)}>{a}</button>)}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Team B */}
-                <div style={teamStyle("var(--amber)")}>
-                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: "var(--amber)", marginBottom: 12 }}>{teamBName || "TEAM B"}</div>
-                    <input
-                        type="number"
-                        style={inputStyle("var(--amber)")}
-                        value={draftB}
-                        onChange={(e) => { onChangeB(isNaN(parseInt(e.target.value)) ? 0 : parseInt(e.target.value), e.target.value); }}
-                    />
-                    <div style={{ marginTop: 12 }}>
-                        <div style={{ fontSize: 11, color: "var(--text3)", letterSpacing: "0.1em", marginBottom: 6 }}>QUICK ADD</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                            {SPINS_QUICK_ADD.map(a => <button key={a} className="btn quick-btn quick-btn--amber" onClick={() => adjustB(a)}>+{a}</button>)}
-                        </div>
-                    </div>
-                    <div style={{ marginTop: 10 }}>
-                        <div style={{ fontSize: 11, color: "var(--text3)", letterSpacing: "0.1em", marginBottom: 6 }}>QUICK SUBTRACT</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                            {SPINS_QUICK_NEG.map(a => <button key={a} className="btn quick-btn quick-btn--neg" onClick={() => adjustB(a)}>{a}</button>)}
-                        </div>
-                    </div>
-                </div>
+        <div style={{ flex: 1, background: "var(--surface)", border: `1px solid ${accent}33`, borderRadius: 12, padding: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: accent }}>{name || (accent === "var(--cyan)" ? "TEAM A" : "TEAM B")}</div>
+                <button className="btn" onClick={handleReset} style={{ fontSize: 11, padding: "4px 10px", background: "var(--surface3)", color: "var(--text3)", border: "1px solid rgba(255,255,255,0.08)" }}>↺ RESET</button>
             </div>
 
-            <button
-                className="btn"
-                onClick={onAddToMain}
-                style={{ marginTop: 24, width: "100%", padding: "14px", fontSize: 15, fontWeight: 700, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.1em", background: "rgba(0,229,160,0.15)", border: "1px solid var(--cyan)", color: "var(--cyan)" }}
-            >
-                ➕ ADD TO OTHER MARKS
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {([0,1,2] as (0|1|2)[]).map(i => s(i))}
+            </div>
+
+            {/* Bonus question — only shown after a forfeit */}
+            {st.forfeited && !st.bonusUsed && (
+                <div style={{ marginTop: 12, background: "rgba(255,180,0,0.08)", border: "1px solid var(--amber)", borderRadius: 10, padding: 12 }}>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: "var(--amber)", marginBottom: 8 }}>
+                        🎁 BONUS QUESTION — recover {st.spins.reduce<number>((a,s)=>a+(s??0),0)}pts
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                        <button className="btn" onClick={() => handleBonus(true)}
+                            style={{ flex: 1, padding: "8px", fontSize: 12, fontWeight: 700, background: "rgba(0,229,160,0.15)", border: "1px solid var(--cyan)", color: "var(--cyan)" }}>
+                            ✓ CORRECT — RECOVER
+                        </button>
+                        <button className="btn" onClick={() => handleBonus(false)}
+                            style={{ flex: 1, padding: "8px", fontSize: 12, fontWeight: 700, background: "rgba(255,64,96,0.15)", border: "1px solid var(--red)", color: "var(--red)" }}>
+                            ✗ WRONG — FORFEIT
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Banked summary */}
+            <div style={{ marginTop: 12, textAlign: "center", fontFamily: "'Bebas Neue', sans-serif", fontSize: 22,
+                color: st.forfeited ? "var(--red)" : "var(--cyan)" }}>
+                {st.forfeited ? "FORFEITED — 0 pts" : `BANKED: ${st.banked} pts`}
+            </div>
+        </div>
+    );
+}
+
+function SpinsPanel({ teamAName, teamBName, stateA, stateB, onChangeA, onChangeB, onAddToMain }: {
+    teamAName: string; teamBName: string;
+    stateA: SpinTeamState; stateB: SpinTeamState;
+    onChangeA: (s: SpinTeamState) => void;
+    onChangeB: (s: SpinTeamState) => void;
+    onAddToMain: () => Promise<void>;
+}) {
+    return (
+        <div style={{ padding: "0 0 24px" }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.1em", marginBottom: 12, color: "var(--text2)" }}>
+                🎰 ROUND 3 — 3 SPINS
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <SpinTeamCard name={teamAName} accent="var(--cyan)" st={stateA} onChange={onChangeA} />
+                <SpinTeamCard name={teamBName} accent="var(--amber)" st={stateB} onChange={onChangeB} />
+            </div>
+            <button className="btn" onClick={onAddToMain}
+                style={{ marginTop: 16, width: "100%", padding: "14px", fontSize: 15, fontWeight: 700,
+                    fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.1em",
+                    background: "rgba(0,229,160,0.15)", border: "1px solid var(--cyan)", color: "var(--cyan)" }}>
+                ➕ ADD BANKED SPINS TO MAIN SCORES ({teamAName}: {stateA.banked}pts · {teamBName}: {stateB.banked}pts)
             </button>
         </div>
     );

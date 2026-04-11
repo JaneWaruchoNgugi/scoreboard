@@ -22,31 +22,11 @@ export function useCountdown(state: ScoreboardState, externalMuted: boolean = fa
 
     const w10 = useRef(false);
     const wEnd = useRef(false);
-    const prevRun = useRef(state.timerRunning);
-    const prevAt = useRef(state.timerStartedAt);
 
-    // Update muted state when externalMuted changes
+    // Update muted state when timer running or externalMuted changes
     useEffect(() => {
         setIsMuted(!state.timerRunning || externalMuted);
     }, [externalMuted, state.timerRunning]);
-
-    // Reset warning flags when timer restarts
-    useEffect(() => {
-        const wasRun = prevRun.current;
-        const wasAt = prevAt.current;
-        prevRun.current = state.timerRunning;
-        prevAt.current = state.timerStartedAt;
-
-        if (
-            state.timerRunning &&
-            (!wasRun || state.timerStartedAt !== wasAt)
-        ) {
-            w10.current = false;
-            wEnd.current = false;
-        }
-    }, [state.timerRunning, state.timerStartedAt]);
-
-    useEffect(() => setIsMuted(!state.timerRunning || externalMuted), [state.timerRunning, externalMuted]);
     useEffect(() => {
         if (!state.timerRunning) pauseAllSounds();
     }, [state.timerRunning, pauseAllSounds]);

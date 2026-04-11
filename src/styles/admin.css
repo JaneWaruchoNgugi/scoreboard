@@ -34,7 +34,7 @@
 }
 .admin-topbar__title {
     font-family: 'Bebas Neue', sans-serif;
-    font-size: 22px;
+    font-size: 26px;
     letter-spacing: 0.15em;
     color: var(--amber);
 }
@@ -106,20 +106,20 @@
 
 /*!* ── Round Selector ──────────────────────────────────────────────────────── *!*/
 .round-selector { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
-.round-btn { padding: 12px 6px; font-family: 'Bebas Neue', sans-serif; font-size: 16px; letter-spacing: 0.1em; }
+.round-btn { padding: 12px 6px; font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 0.1em; }
 .round-btn--active { background: var(--green); color: var(--bg); border: 1px solid var(--green); box-shadow: 0 0 20px rgba(0, 229, 160, 0.3); }
 .round-btn--idle   { background: var(--surface2); color: var(--text2); border: 1px solid var(--border2); }
 
 /*!* ── Duration Presets ────────────────────────────────────────────────────── *!*/
 .duration-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.duration-btn { padding: 12px 6px; font-family: 'Bebas Neue', sans-serif; font-size: 18px; letter-spacing: 0.05em; }
+.duration-btn { padding: 12px 6px; font-family: 'Bebas Neue', sans-serif; font-size: 22px; letter-spacing: 0.05em; }
 .duration-btn--active { background: rgba(0, 229, 160, 0.15); color: var(--green); border: 1px solid var(--green); }
 .duration-btn--idle   { background: var(--surface2); color: var(--text2); border: 1px solid var(--border2); }
 
 /*!* ── Custom Duration Input ───────────────────────────────────────────────── *!*/
 .duration-input {
-    width: 100%; height: 46px; text-align: center;
-    font-size: 20px; font-weight: 700; font-family: 'Bebas Neue', sans-serif;
+    width: 100%; height: 52px; text-align: center;
+    font-size: 24px; font-weight: 700; font-family: 'Bebas Neue', sans-serif;
     background: var(--surface2); border: 1px solid var(--border2);
     border-radius: 10px; color: var(--text); padding: 0 8px;
 }
@@ -130,24 +130,24 @@
     display: flex; align-items: center; justify-content: space-between;
     border: 1px solid var(--border2);
 }
-.timer-preview__countdown { font-family: 'Bebas Neue', sans-serif; font-size: 40px; line-height: 1; }
+.timer-preview__countdown { font-family: 'Bebas Neue', sans-serif; font-size: 56px; line-height: 1; }
 .timer-preview__countdown--warning { color: var(--red); text-shadow: 0 0 20px rgba(255, 64, 96, 0.5); }
 .timer-preview__countdown--end     { color: var(--text3); }
 .timer-preview__countdown--normal  { color: var(--green); text-shadow: 0 0 20px rgba(0, 229, 160, 0.3); }
-.timer-preview__unit   { font-size: 16px; margin-left: 4px; color: var(--text3); }
+.timer-preview__unit   { font-size: 20px; margin-left: 4px; color: var(--text3); }
 .timer-preview__meta   { display: flex; flex-direction: column; gap: 6px; }
-.timer-preview__status { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.1em; }
+.timer-preview__status { font-family: 'DM Mono', monospace; font-size: 13px; letter-spacing: 0.1em; }
 .timer-preview__status--running { color: var(--green); }
 .timer-preview__status--idle    { color: var(--text3); }
-.timer-preview__info   { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); }
+.timer-preview__info   { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text3); }
 
 /*!* ── Timer Controls ──────────────────────────────────────────────────────── *!*/
 .timer-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.timer-btn { padding: 13px 0; font-size: 13px; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.12em; border-radius: 12px; }
+.timer-btn { padding: 15px 0; font-size: 16px; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.12em; border-radius: 12px; }
 .timer-btn--start { background: rgba(0, 229, 160, 0.2); color: var(--green); border: 1px solid rgba(0, 229, 160, 0.4); }
 .timer-btn--stop  { background: rgba(255, 64, 96, 0.2); color: var(--red);   border: 1px solid rgba(255, 64, 96, 0.4); }
 .timer-btn--reset { background: var(--surface2); color: var(--text2); border: 1px solid var(--border2); }
-.timer-hint { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text3); text-align: center; letter-spacing: 0.08em; }
+.timer-hint { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text3); text-align: center; letter-spacing: 0.08em; }
 
 /*!* ── Score Row ───────────────────────────────────────────────────────────── *!*/
 .score-row { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
@@ -157,9 +157,9 @@
 .score-adj-btn--plus-cyan   { background: rgba(0, 212, 255, 0.12);  color: var(--cyan);  border: 1px solid rgba(0, 212, 255, 0.3); }
 
 /*!* ── Quick Buttons ───────────────────────────────────────────────────────── *!*/
-.quick-label   { font-size: 10px; font-weight: 500; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 6px; display: block; }
+.quick-label   { font-size: 12px; font-weight: 500; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 6px; display: block; }
 .quick-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
-.quick-btn { padding: 8px 12px; font-size: 12px; font-weight: 600; font-family: 'DM Sans', sans-serif; background: var(--surface3); border: 1px solid var(--border2); border-radius: 8px; flex: 1 0 auto; }
+.quick-btn { padding: 10px 14px; font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif; background: var(--surface3); border: 1px solid var(--border2); border-radius: 8px; flex: 1 0 auto; }
 .quick-btn--amber { color: var(--amber); }
 .quick-btn--cyan  { color: var(--cyan);  }
 .quick-btn--neg   { color: #ff8080;      }
@@ -167,13 +167,13 @@
 /*!* ── Publish / Reset Row ─────────────────────────────────────────────────── *!*/
 .publish-row { display: flex; flex-direction: row; gap: 10px; margin-top: 10px; }
 .error-banner { background: rgba(255, 64, 96, 0.1); border: 1px solid rgba(255, 64, 96, 0.3); border-radius: 12px; padding: 12px 16px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--red); line-height: 1.6; }
-.publish-btn { padding: 15px 0; font-size: 14px; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.15em; border-radius: 14px; width: 100%; color: var(--bg); }
+.publish-btn { padding: 17px 0; font-size: 16px; font-family: 'Bebas Neue', sans-serif; letter-spacing: 0.15em; border-radius: 14px; width: 100%; color: var(--bg); }
 .publish-btn--saved   { background: var(--green); box-shadow: 0 8px 24px rgba(0, 229, 160, 0.3); }
 .publish-btn--unsaved { background: var(--cyan);  box-shadow: 0 8px 24px rgba(0, 212, 255, 0.25); }
-.reset-btn { background: transparent; color: var(--text3); padding: 12px 0; font-size: 13px; border: 1px solid rgb(255 255 255 / 0.29); border-radius: 14px; width: 100%; }
+.reset-btn { background: transparent; color: var(--text3); padding: 12px 0; font-size: 15px; border: 1px solid rgb(255 255 255 / 0.29); border-radius: 14px; width: 100%; }
 
 /*!* ── Shared field labels ─────────────────────────────────────────────────── *!*/
-.field-label { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 8px; display: block; }
+.field-label { font-size: 13px; font-weight: 600; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 8px; display: block; }
 
 /*!* ── Loading screen ──────────────────────────────────────────────────────── *!*/
 .admin-loading { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--bg); }

@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import type { FirebaseApp } from "firebase/app";
-import { getDatabase, ref, set, onValue, get } from "firebase/database";
+import { getDatabase, ref, set, push, onValue, get } from "firebase/database";
 import type { Database } from "firebase/database";
 import type { ScoreboardState, Category } from "../types";
 import { DEFAULT_CATEGORIES } from "../data/categories";
@@ -56,14 +56,15 @@ export interface ScoreRecord {
 }
 
 export async function appendScoreRecord(record: ScoreRecord): Promise<void> {
-    const snap = await get(ref(db, "scoreboard/scoreHistory"));
-    const existing: ScoreRecord[] = snap.exists() ? snap.val() : [];
-    await set(ref(db, "scoreboard/scoreHistory"), [...existing, record]);
+    await push(ref(db, "scoreboard/scoreHistory"), record);
 }
 
 export async function fetchScoreHistory(): Promise<ScoreRecord[]> {
     const snap = await get(ref(db, "scoreboard/scoreHistory"));
-    return snap.exists() ? snap.val() : [];
+    if (!snap.exists()) return [];
+    const val = snap.val();
+    // push() stores as object with auto-keys; set() stores as array — handle both
+    return Array.isArray(val) ? val : Object.values(val);
 }
 
 export async function clearScoreHistory(): Promise<void> {
