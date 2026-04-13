@@ -22,7 +22,7 @@ const R1_DURATIONS = [150];
 const R2_DURATIONS = [20,25,30,35,40];
 const R3_DURATIONS = [60];
 
-export function AdminView({ onBack, username }: Props) {
+export function AdminView({ onBack, username: _username }: Props) {
     const [state, setState] = useState<ScoreboardState>(DEFAULT_STATE);
     const [scoreHistory, setScoreHistory] = useState<{ a: number; b: number } | null>(null); // undo
     const [saving, setSaving] = useState(false);
