@@ -136,3 +136,17 @@ export function mergeCategories(saved: Category[]): Category[] {
         };
     });
 }
+
+// ─── Voice Stats ───────────────────────────────────────────────────────────
+
+export interface VoiceStats { correct: number; wrong: number; pass: number; }
+
+export async function saveVoiceStats(stats: VoiceStats): Promise<void> {
+    await set(ref(db, "scoreboard/voiceStats"), stats);
+}
+
+export function subscribeToVoiceStats(callback: (s: VoiceStats) => void): () => void {
+    return onValue(ref(db, "scoreboard/voiceStats"), (snap) => {
+        callback(snap.exists() ? snap.val() : { correct: 0, wrong: 0, pass: 0 });
+    });
+}

@@ -4,8 +4,8 @@ import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
 import { ControlCard } from "../shared/ControlCard";
 import { QuestionBankCard } from "./QuestionBankCard";
 import { useAudioControl } from "../../hooks/useAudioControl";
-import { saveState, fetchState, mergeCategories, appendScoreRecord, fetchScoreHistory, clearScoreHistory, saveScoreHistory, fetchActivityLog, clearActivityLog } from "../../firebase";
-import type { ScoreRecord, ActivityEntry } from "../../firebase";
+import { saveState, fetchState, mergeCategories, appendScoreRecord, fetchScoreHistory, clearScoreHistory, saveScoreHistory, fetchActivityLog, clearActivityLog, subscribeToVoiceStats, saveVoiceStats } from "../../firebase";
+import type { ScoreRecord, ActivityEntry, VoiceStats } from "../../firebase";
 import { DEFAULT_STATE, DEFAULT_CATEGORIES } from "../../data/categories";
 import type { ScoreboardState, Category, TeamSide, QuestionEntry } from "../../types";
 
@@ -35,7 +35,14 @@ export function AdminView({ onBack, username: _username }: Props) {
         teamAName: DEFAULT_STATE.teamA.name,
         teamBName: DEFAULT_STATE.teamB.name,
     });
-    const [activeTab, setActiveTab] = useState<"timer" | "categories"|"preview" | "teams" | "bank" | "history" | "activity">("teams");
+    const [activeTab, setActiveTab] = useState<"timer" | "categories"|"preview" | "teams" | "bank" | "history" | "activity" | "voice">("teams");
+
+    // Round 1 voice tracking stats — subscribed from Firebase (Bella's phone pushes updates)
+    const [voiceStats, setVoiceStats] = useState<VoiceStats>({ correct: 0, wrong: 0, pass: 0 });
+    const voiceStatsRef = useRef(voiceStats);
+
+    useEffect(() => { voiceStatsRef.current = voiceStats; }, [voiceStats]);
+    useEffect(() => subscribeToVoiceStats(setVoiceStats), []);
 
     // Lifted scoring selections so keyboard shortcuts stay in sync
     const defaultCorrect = (r: number) => r === 1 ? 100 : r === 2 ? 500 : 0;
@@ -428,6 +435,9 @@ export function AdminView({ onBack, username: _username }: Props) {
                 {activeTab === "activity" && (
                     <ActivityLogPanel />
                 )}
+                {activeTab === "voice" && (
+                    <VoiceTrackerPanel stats={voiceStats} />
+                )}
 
             </div>
         </div>
@@ -466,8 +476,8 @@ function AdminTopBar({ onBack }: TopBarProps) {
 }
 
 interface TabsProps {
-    activeTab: "timer" | "categories" | "teams" | "bank" | "preview" | "history" | "activity";
-    onTabChange: (tab: "timer" | "categories" | "teams" | "bank" | "preview" | "history" | "activity") => void;
+    activeTab: "timer" | "categories" | "teams" | "bank" | "preview" | "history" | "activity" | "voice";
+    onTabChange: (tab: "timer" | "categories" | "teams" | "bank" | "preview" | "history" | "activity" | "voice") => void;
 }
 
 function AdminTabs({ activeTab, onTabChange }: TabsProps) {
@@ -476,6 +486,7 @@ function AdminTabs({ activeTab, onTabChange }: TabsProps) {
         { id: "teams" as const, icon: "⏱️", label: "TEAMS" },
         { id: "history" as const, icon: "📊", label: "SCORE HISTORY" },
         { id: "activity" as const, icon: "📋", label: "ACTIVITY LOG" },
+        { id: "voice" as const, icon: "🎙️", label: "VOICE TRACKER" },
     ];
 
     return (
@@ -1938,6 +1949,45 @@ function ActivityLogPanel() {
                     ))}
                 </div>
             )}
+        </div>
+    );
+}
+
+// ── Voice Tracker ─────────────────────────────────────────────────────────────
+interface VoiceStatsLocal { correct: number; wrong: number; pass: number; }
+
+function VoiceTrackerPanel({ stats }: { stats: VoiceStatsLocal }) {
+    const total = stats.correct + stats.wrong + stats.pass;
+
+    const statBox = (label: string, val: number, color: string) => (
+        <div style={{ flex: 1, background: "var(--surface)", border: `1px solid ${color}33`, borderRadius: 14, padding: "24px 16px", textAlign: "center" }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 48, color, lineHeight: 1 }}>{val}</div>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--text3)", marginTop: 6, letterSpacing: "0.15em" }}>{label}</div>
+            {total > 0 && <div style={{ fontSize: 12, color, marginTop: 4, opacity: 0.7 }}>{Math.round(val / total * 100)}%</div>}
+        </div>
+    );
+
+    return (
+        <div style={{ padding: 24, maxWidth: 700, width: "100%", margin: "0 auto" }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.1em", marginBottom: 6 }}>🎙️ VOICE TRACKER — ROUND 1</div>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--text3)", marginBottom: 20 }}>
+                Live from Bella's device · Listening for: <b style={{ color: "var(--cyan)" }}>correct</b> · <b style={{ color: "var(--red)" }}>wrong / incorrect</b> · <b style={{ color: "var(--amber)" }}>pass</b>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+                {statBox("CORRECT", stats.correct, "var(--cyan)")}
+                {statBox("WRONG", stats.wrong, "var(--red)")}
+                {statBox("PASS", stats.pass, "var(--amber)")}
+                <div style={{ flex: 1, background: "var(--surface)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "24px 16px", textAlign: "center" }}>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 48, color: "var(--text)", lineHeight: 1 }}>{total}</div>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--text3)", marginTop: 6, letterSpacing: "0.15em" }}>TOTAL</div>
+                </div>
+            </div>
+
+            <button className="btn" onClick={() => saveVoiceStats({ correct: 0, wrong: 0, pass: 0 })}
+                style={{ padding: "10px 24px", fontSize: 13, background: "var(--surface2)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--text3)" }}>
+                ↺ Reset Stats
+            </button>
         </div>
     );
 }
