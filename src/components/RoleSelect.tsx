@@ -142,15 +142,6 @@ export function RoleSelect({ onSelect }: Props) {
                 ))}
             </div>
 
-            <div
-                className="fade-up"
-                style={{
-                    fontSize: 12, color: "var(--text3)",
-                    fontFamily: "'DM Mono', monospace", animationDelay: "0.2s",
-                }}
-            >
-                {/*Powered by Firebase — syncs instantly across all devices*/}
-            </div>
         </div>
     );
 }

@@ -4,8 +4,8 @@ import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
 import { ControlCard } from "../shared/ControlCard";
 import { QuestionBankCard } from "./QuestionBankCard";
 import { useAudioControl } from "../../hooks/useAudioControl";
-import { saveState, fetchState, mergeCategories, appendScoreRecord, fetchScoreHistory, clearScoreHistory, saveScoreHistory } from "../../firebase";
-import type { ScoreRecord } from "../../firebase";
+import { saveState, fetchState, mergeCategories, appendScoreRecord, fetchScoreHistory, clearScoreHistory, saveScoreHistory, fetchActivityLog, clearActivityLog } from "../../firebase";
+import type { ScoreRecord, ActivityEntry } from "../../firebase";
 import { DEFAULT_STATE, DEFAULT_CATEGORIES } from "../../data/categories";
 import type { ScoreboardState, Category, TeamSide, QuestionEntry } from "../../types";
 
@@ -13,6 +13,7 @@ import "../../styles/admin.css";
 
 interface Props {
     onBack: () => void;
+    username: string;
 }
 
 // const QUICK_AMOUNTS = [50,100,150,250, 500, 600, 750,1000, 2000,2500];
@@ -21,20 +22,30 @@ const R1_DURATIONS = [150];
 const R2_DURATIONS = [20,25,30,35,40];
 const R3_DURATIONS = [60];
 
-export function AdminView({ onBack }: Props) {
+export function AdminView({ onBack, username }: Props) {
     const [state, setState] = useState<ScoreboardState>(DEFAULT_STATE);
+    const [scoreHistory, setScoreHistory] = useState<{ a: number; b: number } | null>(null); // undo
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isMuted, setIsMuted] = useState(true);
-    // const [audioEnabled, setAudioEnabled] = useState(false);
     const [previewRemaining, setPreviewRemaining] = useState(DEFAULT_STATE.timerDuration);
     const [drafts, setDrafts] = useState({
         teamAName: DEFAULT_STATE.teamA.name,
         teamBName: DEFAULT_STATE.teamB.name,
     });
-    const [activeTab, setActiveTab] = useState<"timer" | "categories"|"preview" | "teams" | "bank" | "history">("teams");
+    const [activeTab, setActiveTab] = useState<"timer" | "categories"|"preview" | "teams" | "bank" | "history" | "activity">("teams");
+
+    // Lifted scoring selections so keyboard shortcuts stay in sync
+    const defaultCorrect = (r: number) => r === 1 ? 100 : r === 2 ? 500 : 0;
+    const defaultPenalty = (r: number) => r === 1 ? -50 : r === 2 ? -250 : 0;
+    const [aCorrect, setACorrect] = useState(() => defaultCorrect(DEFAULT_STATE.timerRound));
+    const [aWrong,   setAWrong]   = useState(() => defaultPenalty(DEFAULT_STATE.timerRound));
+    const [aPass,    setAPass]    = useState(() => defaultPenalty(DEFAULT_STATE.timerRound));
+    const [bCorrect, setBCorrect] = useState(() => defaultCorrect(DEFAULT_STATE.timerRound));
+    const [bWrong,   setBWrong]   = useState(() => defaultPenalty(DEFAULT_STATE.timerRound));
+    const [bPass,    setBPass]    = useState(() => defaultPenalty(DEFAULT_STATE.timerRound));
 
     const {  pauseAllSounds } = useAudioControl(isMuted);
     const teamANameRef = useRef<HTMLInputElement | null>(null);
@@ -46,7 +57,6 @@ export function AdminView({ onBack }: Props) {
     } | null>(null);
 
     // Handle delayed timer start when question is clicked
-    // Handle delayed timer start when question is clicked
     useEffect(() => {
         if (!pendingQuestion) return;
 
@@ -57,6 +67,22 @@ export function AdminView({ onBack }: Props) {
 
         return () => clearTimeout(timer);
     }, [ pendingQuestion]); // ✅ Only fires when a new question is picked
+
+    // Keyboard shortcuts: A=Team A correct, Z=Team A wrong, K=Team B correct, M=Team B wrong
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if ((e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA") return;
+            if (e.key === "a") adjustScore(aCorrect, "A");
+            if (e.key === "z") adjustScore(aWrong, "A");
+            if (e.key === "x") adjustScore(aPass, "A");
+            if (e.key === "k") adjustScore(bCorrect, "B");
+            if (e.key === "m") adjustScore(bWrong, "B");
+            if (e.key === ",") adjustScore(bPass, "B");
+            if ((e.ctrlKey || e.metaKey) && e.key === "z") handleUndo();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [aCorrect, aWrong, aPass, bCorrect, bWrong, bPass, state]);
 
     // Load initial state
     useEffect(() => {
@@ -174,12 +200,23 @@ export function AdminView({ onBack }: Props) {
 
     const adjustScore = (amount: number, side: TeamSide) => {
         setState((p) => {
+            setScoreHistory({ a: p.teamA.score, b: p.teamB.score }); // save for undo
             const next = side === "A"
                 ? { ...p, teamA: { ...p.teamA, score: Math.max(-999999, Math.min(999999, p.teamA.score + amount)) } }
                 : { ...p, teamB: { ...p.teamB, score: Math.max(-999999, Math.min(999999, p.teamB.score + amount)) } };
             debouncedSave(next);
             return next;
         });
+    };
+
+    const handleUndo = () => {
+        if (!scoreHistory) return;
+        setState((p) => {
+            const next = { ...p, teamA: { ...p.teamA, score: scoreHistory.a }, teamB: { ...p.teamB, score: scoreHistory.b } };
+            debouncedSave(next);
+            return next;
+        });
+        setScoreHistory(null);
     };
 
     // Timer management
@@ -191,9 +228,12 @@ export function AdminView({ onBack }: Props) {
             timerDuration: round === 1 ? 150 : (round === 2 ? 30 : 60),
             timerStartedAt: null,
             timerRunning: false,
+            timerElapsed: 0,
             activeCategory: null,
             showAnswer: false,
         }));
+        setACorrect(defaultCorrect(round)); setAWrong(defaultPenalty(round)); setAPass(defaultPenalty(round));
+        setBCorrect(defaultCorrect(round)); setBWrong(defaultPenalty(round)); setBPass(defaultPenalty(round));
         setSaved(false);
     };
 
@@ -358,6 +398,10 @@ export function AdminView({ onBack }: Props) {
                             saving={saving}
                             onPublish={handlePublish}
                             onReset={handleTimerReset}
+                            onUndo={handleUndo}
+                            canUndo={!!scoreHistory}
+                            scoringA={{ correct: aCorrect, wrong: aWrong, pass: aPass, setCorrect: setACorrect, setWrong: setAWrong, setPass: setAPass }}
+                            scoringB={{ correct: bCorrect, wrong: bWrong, pass: bPass, setCorrect: setBCorrect, setWrong: setBWrong, setPass: setBPass }}
                         />
                     </div>
                 </div>
@@ -380,6 +424,9 @@ export function AdminView({ onBack }: Props) {
                 )}
                 {activeTab === "history" && (
                     <ScoreHistoryPanel />
+                )}
+                {activeTab === "activity" && (
+                    <ActivityLogPanel />
                 )}
 
             </div>
@@ -419,8 +466,8 @@ function AdminTopBar({ onBack }: TopBarProps) {
 }
 
 interface TabsProps {
-    activeTab: "timer" | "categories" | "teams" | "bank" | "preview" | "history";
-    onTabChange: (tab: "timer" | "categories" | "teams" | "bank" | "preview" | "history") => void;
+    activeTab: "timer" | "categories" | "teams" | "bank" | "preview" | "history" | "activity";
+    onTabChange: (tab: "timer" | "categories" | "teams" | "bank" | "preview" | "history" | "activity") => void;
 }
 
 function AdminTabs({ activeTab, onTabChange }: TabsProps) {
@@ -428,6 +475,7 @@ function AdminTabs({ activeTab, onTabChange }: TabsProps) {
         { id: "preview" as const, icon: "👥", label: "Preview Scores" },
         { id: "teams" as const, icon: "⏱️", label: "TEAMS" },
         { id: "history" as const, icon: "📊", label: "SCORE HISTORY" },
+        { id: "activity" as const, icon: "📋", label: "ACTIVITY LOG" },
     ];
 
     return (
@@ -1111,16 +1159,15 @@ function CategoriesCard({
     );
 }
 
+interface ScoringState {
+    correct: number; wrong: number; pass: number;
+    setCorrect: (v: number) => void; setWrong: (v: number) => void; setPass: (v: number) => void;
+}
+
 interface TeamsCardProps {
     state: ScoreboardState;
-    drafts: {
-        teamAName: string;
-        teamBName: string;
-    };
-    setDrafts: React.Dispatch<React.SetStateAction<{
-        teamAName: string;
-        teamBName: string;
-    }>>;
+    drafts: { teamAName: string; teamBName: string; };
+    setDrafts: React.Dispatch<React.SetStateAction<{ teamAName: string; teamBName: string; }>>;
     onCommitTeamName: (side: TeamSide) => void;
     onScoreChange: (side: TeamSide, val: string) => void;
     onAdjustScore: (amount: number, side: TeamSide) => void;
@@ -1128,20 +1175,11 @@ interface TeamsCardProps {
     teamANameRef: React.RefObject<HTMLInputElement | null>;
     teamAScoreRef: React.RefObject<HTMLInputElement | null>;
     onClearScores: () => Promise<void>;
+    scoringA: ScoringState;
+    scoringB: ScoringState;
 }
 
-function TeamsCard({
-                       state,
-                       drafts,
-                       setDrafts,
-                       onCommitTeamName,
-                       onScoreChange,
-                       onAdjustScore,
-                       onFocus,
-                       teamANameRef,
-                       teamAScoreRef,
-                       onClearScores,
-                   }: TeamsCardProps) {
+function TeamsCard({ state, drafts, setDrafts, onCommitTeamName, onScoreChange, onAdjustScore, onFocus, teamANameRef, teamAScoreRef, onClearScores, scoringA, scoringB }: TeamsCardProps) {
     return (
         <div className="teams-row">
             <TeamCard
@@ -1157,6 +1195,7 @@ function TeamsCard({
                 scoreRef={teamAScoreRef}
                 accent="var(--cyan)"
                 round={state.timerRound}
+                scoring={scoringA}
             />
             <TeamCard
                 side="B"
@@ -1171,12 +1210,10 @@ function TeamsCard({
                 scoreRef={null}
                 accent="var(--amber)"
                 round={state.timerRound}
+                scoring={scoringB}
             />
-            <button
-                className="btn"
-                onClick={onClearScores}
-                style={{ gridColumn: "1 / -1", background: "rgba(255,64,96,0.12)", border: "1px solid var(--red)", color: "var(--red)", padding: "10px", fontSize: 13, fontWeight: 700, marginTop: 8, width: "100%" }}
-            >
+            <button className="btn" onClick={onClearScores}
+                style={{ gridColumn: "1 / -1", background: "rgba(255,64,96,0.12)", border: "1px solid var(--red)", color: "var(--red)", padding: "10px", fontSize: 13, fontWeight: 700, marginTop: 8, width: "100%" }}>
                 ✕ CLEAR BOTH SCORES
             </button>
         </div>
@@ -1185,10 +1222,7 @@ function TeamsCard({
 
 interface TeamCardProps {
     side: TeamSide;
-    team: {
-        name: string;
-        score: number;
-    };
+    team: { name: string; score: number; };
     draftName: string;
     onNameChange: (val: string) => void;
     onCommitName: () => void;
@@ -1199,34 +1233,40 @@ interface TeamCardProps {
     scoreRef: React.RefObject<HTMLInputElement | null> | null;
     accent: string;
     round: number;
+    scoring: ScoringState;
 }
 
-function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreChange, onAdjustScore, onFocus, nameRef, scoreRef, accent, round }: TeamCardProps) {
+function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreChange, onAdjustScore, onFocus, nameRef, scoreRef, accent, round, scoring }: TeamCardProps) {
     const isHome = side === "A";
 
-    // Round 1 bonus: null | 50 | 100
-    const [r1Bonus, setR1Bonus] = useState<0 | 50 | 100>(0);
-    // Round 2 double chance
-    const [doubleChance, setDoubleChance] = useState(false);
+    const R1_CORRECT = [100, 150, 200];
+    const R1_PENALTY = [0, -50, -100];
+    const R2_CORRECT = [500, 1000, 1500];
+    const R2_PENALTY = [0, -250, -500, -1000];
 
-    const correct = round === 1 ? 100 + r1Bonus : round === 2 ? (doubleChance ? 1000 : 500) : 0;
-    const penalty = round === 1 ? -50 : round === 2 ? (doubleChance ? -500 : -250) : 0;
+    const defaultCorrect = round === 1 ? 100 : round === 2 ? 500 : 0;
+    const defaultPenalty = round === 1 ? -50 : round === 2 ? -250 : 0;
+    // use lifted scoring state (kept in sync with keyboard shortcuts)
+    const { correct: correctVal, wrong: wrongVal, pass: passVal,
+            setCorrect: setCorrectVal, setWrong: setWrongVal, setPass: setPassVal } = scoring;
+    void defaultCorrect; void defaultPenalty; // used by parent
 
-    const btn = (label: string, amt: number, color: string, bg: string) => (
+    const chip = (val: number, active: boolean, onClick: () => void, color: string) => (
+        <button key={val} className="btn" onClick={onClick} style={{
+            padding: "3px 8px", fontSize: 11, borderRadius: 6, border: `1px solid ${active ? color : "rgba(255,255,255,0.08)"}`,
+            background: active ? `${color}22` : "var(--surface3)", color: active ? color : "var(--text3)", fontWeight: active ? 700 : 400,
+        }}>{val > 0 ? `+${val}` : val}</button>
+    );
+
+    const actionBtn = (label: string, amt: number, color: string, bg: string) => (
         <button className="btn" onClick={() => onAdjustScore(amt)}
             style={{ flex: 1, padding: "10px 4px", fontSize: 13, fontWeight: 700, background: bg, border: `1px solid ${color}`, color }}>
             {label}<br /><span style={{ fontSize: 11, opacity: 0.8 }}>{amt > 0 ? `+${amt}` : amt}</span>
         </button>
     );
 
-    const bonusBtn = (label: string, active: boolean, onClick: () => void) => (
-        <button className="btn" onClick={onClick} style={{
-            flex: 1, padding: "6px 4px", fontSize: 11, fontWeight: 700,
-            background: active ? "rgba(255,215,0,0.2)" : "var(--surface3)",
-            border: `1px solid ${active ? "gold" : "rgba(255,255,255,0.1)"}`,
-            color: active ? "gold" : "var(--text3)",
-        }}>{label}</button>
-    );
+    const correctOptions = round === 1 ? R1_CORRECT : R2_CORRECT;
+    const penaltyOptions = round === 1 ? R1_PENALTY : R2_PENALTY;
 
     return (
         <ControlCard accent={accent} title={isHome ? "TEAM A" : "TEAM B"}>
@@ -1261,50 +1301,34 @@ function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreCh
                         <button className={`btn score-adj-btn score-adj-btn--plus-${isHome ? "cyan" : "amber"}`} onClick={() => onAdjustScore(100)}>+</button>
                     </div>
 
-                    {/* Correct / Wrong / Pass */}
                     {round !== 3 && (
-                        <div style={{ marginTop: 14 }}>
-                            {/* Round 1 bonus selector */}
-                            {round === 1 && (
-                                <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text3)", alignSelf: "center", letterSpacing: "0.1em" }}>BONUS:</span>
-                                    {bonusBtn("NONE", r1Bonus === 0, () => setR1Bonus(0))}
-                                    {bonusBtn("+50", r1Bonus === 50, () => setR1Bonus(r1Bonus === 50 ? 0 : 50))}
-                                    {bonusBtn("+100", r1Bonus === 100, () => setR1Bonus(r1Bonus === 100 ? 0 : 100))}
+                        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                            {/* CORRECT row */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--cyan)", alignSelf: "center", minWidth: 52 }}>CORRECT</span>
+                                    {correctOptions.map(v => chip(v, correctVal === v, () => setCorrectVal(v), "var(--cyan)"))}
                                 </div>
-                            )}
-                            {/* Round 2 double chance toggle */}
-                            {round === 2 && (
-                                <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text3)", alignSelf: "center", letterSpacing: "0.1em" }}>BONUS:</span>
-                                    {bonusBtn("NONE", !doubleChance, () => setDoubleChance(false))}
-                                    {bonusBtn("⚡ DOUBLE CHANCE", doubleChance, () => setDoubleChance(!doubleChance))}
-                                </div>
-                            )}
-                            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: "0.1em", color: "var(--text3)", marginBottom: 8 }}>
-                                ROUND {round} — CORRECT +{correct} · WRONG/PASS {penalty}
+                                {actionBtn("✓ CORRECT", correctVal, "var(--cyan)", "rgba(0,229,160,0.12)")}
                             </div>
-                            <div style={{ display: "flex", gap: 6 }}>
-                                {btn("✓ CORRECT", correct, "var(--cyan)", "rgba(0,229,160,0.12)")}
-                                {btn("✗ WRONG", penalty, "var(--red)", "rgba(255,64,96,0.12)")}
-                                {btn("→ PASS", penalty, "var(--amber)", "rgba(255,180,0,0.12)")}
+                            {/* WRONG row */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--red)", alignSelf: "center", minWidth: 52 }}>WRONG</span>
+                                    {penaltyOptions.map(v => chip(v, wrongVal === v, () => setWrongVal(v), "var(--red)"))}
+                                </div>
+                                {actionBtn("✗ WRONG", wrongVal, "var(--red)", "rgba(255,64,96,0.12)")}
+                            </div>
+                            {/* PASS row */}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--amber)", alignSelf: "center", minWidth: 52 }}>PASS</span>
+                                    {penaltyOptions.map(v => chip(v, passVal === v, () => setPassVal(v), "var(--amber)"))}
+                                </div>
+                                {actionBtn("→ PASS", passVal, "var(--amber)", "rgba(255,180,0,0.12)")}
                             </div>
                         </div>
                     )}
-
-                    {/*<QuickButtons*/}
-                    {/*    amounts={QUICK_AMOUNTS}*/}
-                    {/*    label="QUICK ADD"*/}
-                    {/*    onAdjust={onAdjustScore}*/}
-                    {/*    variant={isHome ? "cyan" : "amber"}*/}
-                    {/*/>*/}
-
-                    {/*<QuickButtons*/}
-                    {/*    amounts={NEG_AMOUNTS}*/}
-                    {/*    label="QUICK SUBTRACT"*/}
-                    {/*    onAdjust={onAdjustScore}*/}
-                    {/*    variant="neg"*/}
-                    {/*/>*/}
                 </div>
             </div>
         </ControlCard>
@@ -1373,15 +1397,16 @@ function PublishFooter({ error, saved, saving, onPublish, onReset }: PublishFoot
 function TeamsSubTabs({
     state, drafts, setDrafts, onCommitTeamName, onScoreChange, onAdjustScore,
     onFocus, teamANameRef, teamAScoreRef, onClearScores, onAddSpinsToMain,
-    error, saved, saving, onPublish, onReset,
+    error, saved, saving, onPublish, onReset, onUndo, canUndo, scoringA, scoringB,
 }: TeamsCardProps & {
     onAddSpinsToMain: (a: number, b: number) => Promise<void>;
     error: string | null; saved: boolean; saving: boolean;
     onPublish: () => Promise<void>; onReset: () => Promise<void>;
+    onUndo: () => void; canUndo: boolean;
+    scoringA: ScoringState; scoringB: ScoringState;
 }) {
     const [sub, setSub] = useState<"scores" | "spins">("scores");
 
-    // Lifted spins state so it survives tab switches
     const [spinsStateA, setSpinsStateA] = useState<SpinTeamState>({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
     const [spinsStateB, setSpinsStateB] = useState<SpinTeamState>({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
 
@@ -1396,13 +1421,22 @@ function TeamsSubTabs({
             </div>
             {sub === "scores" && (
                 <>
-
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text3)", letterSpacing: "0.1em" }}>
+                            SHORTCUTS — A correct · Z wrong · X pass (Team A) &nbsp;|&nbsp; K correct · M wrong · , pass (Team B)
+                        </span>
+                        <button className="btn" onClick={onUndo} disabled={!canUndo}
+                            style={{ fontSize: 11, padding: "5px 12px", background: canUndo ? "rgba(255,180,0,0.15)" : "var(--surface3)", border: `1px solid ${canUndo ? "var(--amber)" : "rgba(255,255,255,0.08)"}`, color: canUndo ? "var(--amber)" : "var(--text3)" }}>
+                            ↩ Undo (Ctrl+Z)
+                        </button>
+                    </div>
                     <TeamsCard
                         state={state} drafts={drafts} setDrafts={setDrafts}
                         onCommitTeamName={onCommitTeamName} onScoreChange={onScoreChange}
                         onAdjustScore={onAdjustScore} onFocus={onFocus}
                         teamANameRef={teamANameRef} teamAScoreRef={teamAScoreRef}
                         onClearScores={onClearScores}
+                        scoringA={scoringA} scoringB={scoringB}
                     />
                     <PublishFooter error={error} saved={saved} saving={saving} onPublish={onPublish} onReset={onReset} />
                 </>
@@ -1474,10 +1508,10 @@ function TeamsSubTabs({
 const SPIN_PRESETS = [50, 100, 150, 250, 500, 750, 1000, 1500, 2000, 2500];
 
 interface SpinTeamState {
-    spins: [number | null, number | null, number | null]; // spin result for each spin (null = not spun yet)
-    banked: number;       // points that will be added to main score
-    forfeited: boolean;   // lost all spin points due to wrong answer
-    bonusUsed: boolean;   // bonus question already used
+    spins: [number | null, number | null, number | null];
+    banked: number;
+    forfeited: boolean;
+    bonusUsed: boolean;
 }
 
 function SpinTeamCard({ name, accent, st, onChange }: {
@@ -1488,36 +1522,32 @@ function SpinTeamCard({ name, accent, st, onChange }: {
     const [spinInput, setSpinInput] = useState<[string, string, string]>(["", "", ""]);
 
     const setSpinVal = (i: 0|1|2, val: string) => {
-        const next: [string, string, string] = [...spinInput] as [string,string,string];
+        const next: [string, string, string] = [...spinInput] as [string, string, string];
         next[i] = val;
         setSpinInput(next);
     };
 
     const spinResult = (i: 0|1|2) => parseInt(spinInput[i]) || 0;
-
-    // Which spin is active (next to play)
     const activeSpinIdx = st.spins.findIndex(s => s === null) as 0|1|2|3;
-
-    const totalSpins = st.spins.reduce<number>((acc, s) => acc + (s ?? 0), 0);
+    const runningTotal = st.spins.reduce<number>((acc, s) => acc + (s ?? 0), 0);
 
     const handleCorrect = (i: 0|1|2) => {
         const pts = spinResult(i);
         const newSpins: [number|null,number|null,number|null] = [...st.spins] as any;
         newSpins[i] = pts;
-        const newBanked = newSpins.reduce<number>((a, s) => a + (s ?? 0), 0);
-        onChange({ ...st, spins: newSpins, banked: newBanked, forfeited: false });
+        onChange({ ...st, spins: newSpins, banked: newSpins.reduce<number>((a, s) => a + (s ?? 0), 0), forfeited: false });
     };
 
     const handleWrong = (i: 0|1|2) => {
-        // forfeit all spins played so far including this one
         const newSpins: [number|null,number|null,number|null] = [...st.spins] as any;
-        newSpins[i] = spinResult(i); // record the spin value
+        newSpins[i] = spinResult(i);
         onChange({ ...st, spins: newSpins, banked: 0, forfeited: true });
     };
 
+    const handleStop = () => onChange({ ...st, banked: runningTotal, forfeited: false });
+
     const handleBonus = (correct: boolean) => {
         if (correct) {
-            // recover all forfeited spin points
             const recovered = st.spins.reduce<number>((a, s) => a + (s ?? 0), 0);
             onChange({ ...st, banked: recovered, forfeited: false, bonusUsed: true });
         } else {
@@ -1525,30 +1555,28 @@ function SpinTeamCard({ name, accent, st, onChange }: {
         }
     };
 
-    const handleStop = () => {
-        // bank what's accumulated so far and stop spinning
-        onChange({ ...st, banked: totalSpins, forfeited: false });
-    };
-
     const handleReset = () => {
         setSpinInput(["", "", ""]);
         onChange({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
     };
 
+    // Progress indicator
+    const spinsCompleted = st.spins.filter(s => s !== null).length;
+
     const s = (i: 0|1|2) => {
         const isActive = activeSpinIdx === i && !st.forfeited;
         const isDone = st.spins[i] !== null;
-        const isLocked = activeSpinIdx > i || st.forfeited;
+        const isLocked = !isDone && !isActive;
         return (
             <div key={i} style={{
                 background: isDone ? (st.forfeited ? "rgba(255,64,96,0.08)" : "rgba(0,229,160,0.08)") : "var(--surface2)",
-                border: `1px solid ${isDone ? (st.forfeited ? "var(--red)" : accent) : "rgba(255,255,255,0.08)"}`,
-                borderRadius: 10, padding: 12, opacity: isLocked && !isDone ? 0.4 : 1,
+                border: `1px solid ${isActive ? accent : isDone ? (st.forfeited ? "var(--red)" : accent) : "rgba(255,255,255,0.08)"}`,
+                borderRadius: 10, padding: 12, opacity: isLocked ? 0.4 : 1,
+                boxShadow: isActive ? `0 0 12px ${accent}33` : "none",
             }}>
-                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: "var(--text3)", marginBottom: 8 }}>
-                    SPIN {i + 1} {isDone ? (st.forfeited ? "❌ FORFEITED" : `✓ ${st.spins[i]}pts`) : ""}
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: isActive ? accent : "var(--text3)", marginBottom: 8 }}>
+                    SPIN {i + 1} {isDone ? (st.forfeited ? "❌ FORFEITED" : `✓ ${st.spins[i]}pts`) : isActive ? "▶ ACTIVE" : ""}
                 </div>
-                {/* Spin value input + presets */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
                     {SPIN_PRESETS.map(p => (
                         <button key={p} className="btn" disabled={!isActive}
@@ -1561,7 +1589,7 @@ function SpinTeamCard({ name, accent, st, onChange }: {
                 <input type="number" disabled={!isActive} value={spinInput[i]}
                     onChange={(e) => setSpinVal(i, e.target.value)}
                     placeholder="or type spin result..."
-                    style={{ width: "100%", background: "var(--surface3)", border: `1px solid ${accent}44`, borderRadius: 6, color: accent, padding: "6px 10px", fontSize: 16, fontFamily: "'Bebas Neue', sans-serif", textAlign: "center", marginBottom: 8 }} />
+                    style={{ width: "100%", background: "var(--surface3)", border: `1px solid ${accent}44`, borderRadius: 6, color: accent, padding: "6px 10px", fontSize: 16, fontFamily: "'Bebas Neue', sans-serif", textAlign: "center", marginBottom: 8, boxSizing: "border-box" }} />
                 {isActive && (
                     <div style={{ display: "flex", gap: 6 }}>
                         <button className="btn" onClick={() => handleCorrect(i)} disabled={!spinResult(i)}
@@ -1572,12 +1600,11 @@ function SpinTeamCard({ name, accent, st, onChange }: {
                             style={{ flex: 1, padding: "8px", fontSize: 12, fontWeight: 700, background: "rgba(255,64,96,0.15)", border: "1px solid var(--red)", color: "var(--red)" }}>
                             ✗ WRONG<br /><span style={{ fontSize: 10 }}>forfeit all</span>
                         </button>
-                        {i > 0 && (
-                            <button className="btn" onClick={handleStop}
-                                style={{ flex: 1, padding: "8px", fontSize: 12, fontWeight: 700, background: "rgba(255,180,0,0.15)", border: "1px solid var(--amber)", color: "var(--amber)" }}>
-                                🛑 STOP<br /><span style={{ fontSize: 10 }}>bank {totalSpins}pts</span>
-                            </button>
-                        )}
+                        {/* STOP available from spin 1 onwards (i >= 0 means always when active and has a value) */}
+                        <button className="btn" onClick={handleStop} disabled={runningTotal === 0}
+                            style={{ flex: 1, padding: "8px", fontSize: 12, fontWeight: 700, background: "rgba(255,180,0,0.15)", border: "1px solid var(--amber)", color: "var(--amber)" }}>
+                            🛑 STOP<br /><span style={{ fontSize: 10 }}>bank {runningTotal}pts</span>
+                        </button>
                     </div>
                 )}
             </div>
@@ -1585,21 +1612,49 @@ function SpinTeamCard({ name, accent, st, onChange }: {
     };
 
     return (
-        <div style={{ flex: 1, background: "var(--surface)", border: `1px solid ${accent}33`, borderRadius: 12, padding: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ flex: 1, background: "var(--surface)", border: `1px solid ${accent}33`, borderRadius: 12, padding: 16, minWidth: 280 }}>
+            {/* Header with progress */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: accent }}>{name || (accent === "var(--cyan)" ? "TEAM A" : "TEAM B")}</div>
-                <button className="btn" onClick={handleReset} style={{ fontSize: 11, padding: "4px 10px", background: "var(--surface3)", color: "var(--text3)", border: "1px solid rgba(255,255,255,0.08)" }}>↺ RESET</button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {/* Spin progress dots */}
+                    <div style={{ display: "flex", gap: 4 }}>
+                        {([0,1,2] as const).map(i => (
+                            <div key={i} style={{
+                                width: 10, height: 10, borderRadius: "50%",
+                                background: st.spins[i] !== null ? (st.forfeited ? "var(--red)" : accent) : activeSpinIdx === i ? accent : "rgba(255,255,255,0.15)",
+                                border: activeSpinIdx === i && st.spins[i] === null ? `2px solid ${accent}` : "none",
+                                boxShadow: activeSpinIdx === i && st.spins[i] === null ? `0 0 6px ${accent}` : "none",
+                            }} />
+                        ))}
+                    </div>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text3)" }}>{spinsCompleted}/3</span>
+                    <button className="btn" onClick={handleReset} style={{ fontSize: 11, padding: "4px 10px", background: "var(--surface3)", color: "var(--text3)", border: "1px solid rgba(255,255,255,0.08)" }}>↺</button>
+                </div>
             </div>
+
+            {/* Running total while spinning */}
+            {!st.forfeited && spinsCompleted > 0 && spinsCompleted < 3 && (
+                <div style={{ marginBottom: 10, padding: "6px 12px", background: `${accent}11`, border: `1px solid ${accent}33`, borderRadius: 8, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, color: accent, textAlign: "center" }}>
+                    RUNNING TOTAL: {runningTotal} pts
+                </div>
+            )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {([0,1,2] as (0|1|2)[]).map(i => s(i))}
             </div>
 
-            {/* Bonus question — only shown after a forfeit */}
+            {/* Bonus question — shown after forfeit, with skip option */}
             {st.forfeited && !st.bonusUsed && (
                 <div style={{ marginTop: 12, background: "rgba(255,180,0,0.08)", border: "1px solid var(--amber)", borderRadius: 10, padding: 12 }}>
-                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: "var(--amber)", marginBottom: 8 }}>
-                        🎁 BONUS QUESTION — recover {st.spins.reduce<number>((a,s)=>a+(s??0),0)}pts
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: "var(--amber)" }}>
+                            🎁 BONUS — recover {st.spins.reduce<number>((a,s)=>a+(s??0),0)}pts
+                        </span>
+                        <button className="btn" onClick={() => onChange({ ...st, bonusUsed: true })}
+                            style={{ fontSize: 10, padding: "3px 8px", background: "transparent", color: "var(--text3)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                            skip
+                        </button>
                     </div>
                     <div style={{ display: "flex", gap: 6 }}>
                         <button className="btn" onClick={() => handleBonus(true)}
@@ -1615,8 +1670,7 @@ function SpinTeamCard({ name, accent, st, onChange }: {
             )}
 
             {/* Banked summary */}
-            <div style={{ marginTop: 12, textAlign: "center", fontFamily: "'Bebas Neue', sans-serif", fontSize: 22,
-                color: st.forfeited ? "var(--red)" : "var(--cyan)" }}>
+            <div style={{ marginTop: 12, textAlign: "center", fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: st.forfeited ? "var(--red)" : accent }}>
                 {st.forfeited ? "FORFEITED — 0 pts" : `BANKED: ${st.banked} pts`}
             </div>
         </div>
@@ -1630,6 +1684,8 @@ function SpinsPanel({ teamAName, teamBName, stateA, stateB, onChangeA, onChangeB
     onChangeB: (s: SpinTeamState) => void;
     onAddToMain: () => Promise<void>;
 }) {
+    const [confirming, setConfirming] = useState(false);
+
     return (
         <div style={{ padding: "0 0 24px" }}>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "0.1em", marginBottom: 12, color: "var(--text2)" }}>
@@ -1639,12 +1695,27 @@ function SpinsPanel({ teamAName, teamBName, stateA, stateB, onChangeA, onChangeB
                 <SpinTeamCard name={teamAName} accent="var(--cyan)" st={stateA} onChange={onChangeA} />
                 <SpinTeamCard name={teamBName} accent="var(--amber)" st={stateB} onChange={onChangeB} />
             </div>
-            <button className="btn" onClick={onAddToMain}
-                style={{ marginTop: 16, width: "100%", padding: "14px", fontSize: 15, fontWeight: 700,
-                    fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.1em",
-                    background: "rgba(0,229,160,0.15)", border: "1px solid var(--cyan)", color: "var(--cyan)" }}>
-                ➕ ADD BANKED SPINS TO MAIN SCORES ({teamAName}: {stateA.banked}pts · {teamBName}: {stateB.banked}pts)
-            </button>
+
+            {!confirming ? (
+                <button className="btn" onClick={() => setConfirming(true)}
+                    style={{ marginTop: 16, width: "100%", padding: "14px", fontSize: 15, fontWeight: 700,
+                        fontFamily: "'Bebas Neue', sans-serif", letterSpacing: "0.1em",
+                        background: "rgba(0,229,160,0.15)", border: "1px solid var(--cyan)", color: "var(--cyan)" }}>
+                    ➕ ADD BANKED SPINS TO MAIN SCORES ({teamAName}: {stateA.banked}pts · {teamBName}: {stateB.banked}pts)
+                </button>
+            ) : (
+                <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+                    <button className="btn" onClick={async () => { await onAddToMain(); setConfirming(false); }}
+                        style={{ flex: 1, padding: "14px", fontSize: 14, fontWeight: 700, fontFamily: "'Bebas Neue', sans-serif",
+                            background: "rgba(0,229,160,0.25)", border: "2px solid var(--cyan)", color: "var(--cyan)" }}>
+                        ✓ CONFIRM — Add {stateA.banked + stateB.banked} pts total
+                    </button>
+                    <button className="btn" onClick={() => setConfirming(false)}
+                        style={{ padding: "14px 20px", fontSize: 14, background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text2)" }}>
+                        Cancel
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
@@ -1708,6 +1779,19 @@ function ScoreHistoryPanel() {
         setHistory([]);
     };
 
+    const handleExportCSV = () => {
+        const rows = [["Time", "Period", "Team A", "Score A", "Team B", "Score B"]];
+        [...history].reverse().forEach((r) => rows.push([
+            new Date(r.timestamp).toLocaleString(), r.period,
+            r.teamAName, String(r.teamAScore), r.teamBName, String(r.teamBScore),
+        ]));
+        const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+        a.download = `score-history-${Date.now()}.csv`;
+        a.click();
+    };
+
     const cell: React.CSSProperties = {
         padding: "12px 16px", fontFamily: "'DM Sans', sans-serif", fontSize: 14,
         borderBottom: "1px solid rgba(255,255,255,0.05)",
@@ -1725,6 +1809,10 @@ function ScoreHistoryPanel() {
                     <button className="btn" onClick={() => setAddingNew(true)} disabled={addingNew}
                         style={{ background: "rgba(0,200,150,0.15)", color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "8px 16px", fontSize: 12 }}>
                         + Add Entry
+                    </button>
+                    <button className="btn" onClick={handleExportCSV} disabled={history.length === 0}
+                        style={{ background: "rgba(0,180,255,0.12)", color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "8px 16px", fontSize: 12 }}>
+                        ↓ Export CSV
                     </button>
                     <button className="btn" onClick={handleClear}
                         style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", border: "1px solid var(--red)", padding: "8px 16px", fontSize: 12 }}>
@@ -1802,6 +1890,52 @@ function ScoreHistoryPanel() {
                             </div>
                         );
                     })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ActivityLogPanel() {
+    const [log, setLog] = useState<ActivityEntry[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchActivityLog().then((entries) => {
+            setLog([...entries].reverse());
+            setLoading(false);
+        });
+    }, []);
+
+    const roleColor = (role: string) => role === "admin" ? "var(--amber)" : "var(--green, #00e5a0)";
+
+    return (
+        <div style={{ padding: 24, maxWidth: 900, width: "100%", margin: "0 auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.1em" }}>ACTIVITY LOG</span>
+                <button className="btn" onClick={async () => { if (!confirm("Clear activity log?")) return; await clearActivityLog(); setLog([]); }}
+                    style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", border: "1px solid var(--red)", padding: "8px 16px", fontSize: 12 }}>
+                    Clear All
+                </button>
+            </div>
+            {loading && <div style={{ color: "var(--text3)", fontFamily: "'DM Mono', monospace", fontSize: 12 }}>Loading…</div>}
+            {!loading && log.length === 0 && <div style={{ color: "var(--text3)", fontFamily: "'DM Mono', monospace", fontSize: 12 }}>No activity yet.</div>}
+            {!loading && log.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {log.map((entry, i) => (
+                        <div key={i} style={{ background: "var(--surface)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "12px 16px", display: "grid", gridTemplateColumns: "160px 100px 1fr", gap: 12, alignItems: "start" }}>
+                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--text3)" }}>
+                                {new Date(entry.timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                            <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, color: roleColor(entry.role), letterSpacing: "0.05em" }}>
+                                {entry.username}
+                            </span>
+                            <div>
+                                <div style={{ fontSize: 13, color: "var(--text)", marginBottom: entry.detail ? 4 : 0 }}>{entry.action}</div>
+                                {entry.detail && <div style={{ fontSize: 11, color: "var(--text3)", fontFamily: "'DM Mono', monospace" }}>{entry.detail}</div>}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
         </div>

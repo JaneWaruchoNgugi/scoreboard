@@ -94,7 +94,30 @@ export function subscribeToQuestions(callback: (data: unknown | null) => void): 
     });
 }
 
-// ─── Merge helper ──────────────────────────────────────────────────────────
+// ─── Activity Log ──────────────────────────────────────────────────────────
+
+export interface ActivityEntry {
+    timestamp: number;
+    username: string;
+    role: "admin" | "Questions-Entry";
+    action: string;       // e.g. "Updated Round 1 questions", "Deleted category Geography"
+    detail?: string;      // optional extra info
+}
+
+export async function appendActivity(entry: ActivityEntry): Promise<void> {
+    await push(ref(db, "scoreboard/activityLog"), entry);
+}
+
+export async function fetchActivityLog(): Promise<ActivityEntry[]> {
+    const snap = await get(ref(db, "scoreboard/activityLog"));
+    if (!snap.exists()) return [];
+    const val = snap.val();
+    return Array.isArray(val) ? val : Object.values(val);
+}
+
+export async function clearActivityLog(): Promise<void> {
+    await set(ref(db, "scoreboard/activityLog"), []);
+}
 /**
  * Merges Firebase-saved categories with DEFAULT_CATEGORIES.
  * Preserves saved question banks; falls back to defaults when missing.
