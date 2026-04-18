@@ -1250,10 +1250,10 @@ interface TeamCardProps {
 function TeamCard({ side, team, draftName, onNameChange, onCommitName, onScoreChange, onAdjustScore, onFocus, nameRef, scoreRef, accent, round, scoring }: TeamCardProps) {
     const isHome = side === "A";
 
-    const R1_CORRECT = [100, 150, 200];
-    const R1_PENALTY = [0, -50, -100];
-    const R2_CORRECT = [500, 1000, 1500];
-    const R2_PENALTY = [0, -250, -500, -1000];
+    const R1_CORRECT = [100, 150, 200,250];
+    const R1_PENALTY = [0, -50, -100,-150];
+    const R2_CORRECT = [500,750, 1000, 1500];
+    const R2_PENALTY = [0, -250,-350, -500, -1000];
 
     const defaultCorrect = round === 1 ? 100 : round === 2 ? 500 : 0;
     const defaultPenalty = round === 1 ? -50 : round === 2 ? -250 : 0;
