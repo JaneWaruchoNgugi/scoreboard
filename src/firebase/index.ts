@@ -100,8 +100,35 @@ export interface ActivityEntry {
     timestamp: number;
     username: string;
     role: "admin" | "Questions-Entry";
-    action: string;       // e.g. "Updated Round 1 questions", "Deleted category Geography"
-    detail?: string;      // optional extra info
+    action: string;
+    detail?: string;
+    device?: string;
+    ip?: string;
+}
+
+export function getDeviceName(): string {
+    const ua = navigator.userAgent;
+    if (/iphone/i.test(ua)) return "iPhone · iOS";
+    if (/ipad/i.test(ua)) return "iPad · iOS";
+    if (/android/i.test(ua)) {
+        const m = ua.match(/Android[^;]*;\s*([^)]+)\)/);
+        const model = m ? m[1].trim() : "Android Device";
+        return `${model} · Android`;
+    }
+    if (/macintosh/i.test(ua)) return "Mac · macOS";
+    if (/windows/i.test(ua)) return "PC · Windows";
+    if (/linux/i.test(ua)) return "Linux";
+    return "Unknown Device";
+}
+
+export async function getClientIP(): Promise<string> {
+    try {
+        const res = await fetch("https://api.ipify.org?format=json");
+        const data = await res.json();
+        return data.ip ?? "unknown";
+    } catch {
+        return "unknown";
+    }
 }
 
 export async function appendActivity(entry: ActivityEntry): Promise<void> {

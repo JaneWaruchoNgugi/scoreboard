@@ -1,10 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import "../shared/GlobalStyles.css";
 import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
 import { useFirebaseState } from "../../hooks/useFirebaseState";
 import { QuestionsPanel } from "./QuestionsPanel.tsx";
-import { saveVoiceStats } from "../../firebase";
-import type { VoiceStats } from "../../firebase";
 
 interface Props { onBack: () => void; }
 
@@ -18,57 +16,6 @@ export function ViewerView({ onBack }: Props) {
     const [activeTab, setActiveTab] = useState<Tab>("scores");
     const color = STATUS_COLOR[status];
 
-    // Voice tracker — invisible to Bella, auto-starts on questions tab
-    const [listening, setListening] = useState(false);
-    const supported = "webkitSpeechRecognition" in window || "SpeechRecognition" in window;
-    const recogRef = useRef<any>(null);
-    const statsRef = useRef<VoiceStats>({ correct: 0, wrong: 0, pass: 0 });
-
-    const startListening = async () => {
-        const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (!SR) return;
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            stream.getTracks().forEach(t => t.stop());
-        } catch { return; }
-        const r = new SR();
-        r.continuous = false;
-        r.interimResults = false;
-        r.lang = "en-US";
-        r.onresult = async (e: any) => {
-            const transcript = Array.from(e.results).map((res: any) => res[0].transcript).join(" ").toLowerCase();
-            const s = { ...statsRef.current };
-            if (/\bcorrect\b/.test(transcript)) s.correct++;
-            else if (/\bwrong\b|\bincorrect\b/.test(transcript)) s.wrong++;
-            else if (/\bpass\b|\bpause\b/.test(transcript)) s.pass++;
-            else return;
-            statsRef.current = s;
-            await saveVoiceStats(s);
-        };
-        r.onerror = (e: any) => {
-            if (e.error === "no-speech" || e.error === "network") return;
-            setListening(false); recogRef.current = null;
-        };
-        r.onend = () => { if (recogRef.current) setTimeout(() => { try { recogRef.current?.start(); } catch (_) {} }, 300); };
-        recogRef.current = r;
-        try { r.start(); setListening(true); } catch (_) {}
-    };
-
-    const stopListening = () => {
-        const r = recogRef.current;
-        recogRef.current = null;
-        try { r?.stop(); } catch (_) {}
-        setListening(false);
-    };
-
-    // Auto-start when questions tab active, auto-stop otherwise
-    useEffect(() => {
-        if (activeTab === "questions" && supported && !recogRef.current) startListening();
-        if (activeTab !== "questions") stopListening();
-    }, [activeTab]);
-
-    useEffect(() => () => { recogRef.current = null; }, []);
-
     return (
         <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse 100% 50% at 50% 0%, rgba(0,212,255,0.04), transparent), var(--bg)", display: "flex", flexDirection: "column", alignItems: "center" }}>
             {/* Top bar */}
@@ -77,13 +24,6 @@ export function ViewerView({ onBack }: Props) {
                     ← Back
                 </button>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {/* Mic indicator — subtle, only visible when listening */}
-                    {listening && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,229,160,0.1)", border: "1px solid var(--cyan)", borderRadius: 100, padding: "6px 12px", fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--cyan)" }}>
-                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--cyan)", display: "inline-block", animation: "pulse 1s infinite" }} />
-                            MIC
-                        </div>
-                    )}
                     <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface2)", padding: "8px 16px", borderRadius: 100, border: "1px solid var(--border)", fontFamily: "'DM Mono', monospace", fontSize: 11, letterSpacing: "0.15em", color }}>
                         <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, boxShadow: status === "live" ? `0 0 10px ${color}` : "none", animation: status === "live" ? "pulse 2s infinite" : "none" }} />
                         {STATUS_LABEL[status]}

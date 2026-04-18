@@ -1418,8 +1418,8 @@ function TeamsSubTabs({
 }) {
     const [sub, setSub] = useState<"scores" | "spins">("scores");
 
-    const [spinsStateA, setSpinsStateA] = useState<SpinTeamState>({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
-    const [spinsStateB, setSpinsStateB] = useState<SpinTeamState>({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
+    const [spinsStateA, setSpinsStateA] = useState<SpinTeamState>({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false, stopped: false });
+    const [spinsStateB, setSpinsStateB] = useState<SpinTeamState>({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false, stopped: false });
 
     return (
         <div className="bottom-section">
@@ -1460,8 +1460,8 @@ function TeamsSubTabs({
                     onChangeA={setSpinsStateA} onChangeB={setSpinsStateB}
                     onAddToMain={async () => {
                         await onAddSpinsToMain(spinsStateA.banked, spinsStateB.banked);
-                        setSpinsStateA({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
-                        setSpinsStateB({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
+                        setSpinsStateA({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false, stopped: false });
+                        setSpinsStateB({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false, stopped: false });
                     }}
                 />
             )}
@@ -1523,6 +1523,7 @@ interface SpinTeamState {
     banked: number;
     forfeited: boolean;
     bonusUsed: boolean;
+    stopped: boolean;
 }
 
 function SpinTeamCard({ name, accent, st, onChange }: {
@@ -1555,7 +1556,10 @@ function SpinTeamCard({ name, accent, st, onChange }: {
         onChange({ ...st, spins: newSpins, banked: 0, forfeited: true });
     };
 
-    const handleStop = () => onChange({ ...st, banked: runningTotal, forfeited: false });
+    const handleStop = (i: 0|1|2) => {
+        const total = runningTotal + spinResult(i);
+        onChange({ ...st, banked: total, stopped: true });
+    };
 
     const handleBonus = (correct: boolean) => {
         if (correct) {
@@ -1568,14 +1572,14 @@ function SpinTeamCard({ name, accent, st, onChange }: {
 
     const handleReset = () => {
         setSpinInput(["", "", ""]);
-        onChange({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false });
+        onChange({ spins: [null, null, null], banked: 0, forfeited: false, bonusUsed: false, stopped: false });
     };
 
     // Progress indicator
     const spinsCompleted = st.spins.filter(s => s !== null).length;
 
     const s = (i: 0|1|2) => {
-        const isActive = activeSpinIdx === i && !st.forfeited;
+        const isActive = activeSpinIdx === i && !st.forfeited && !st.stopped;
         const isDone = st.spins[i] !== null;
         const isLocked = !isDone && !isActive;
         return (
@@ -1611,10 +1615,9 @@ function SpinTeamCard({ name, accent, st, onChange }: {
                             style={{ flex: 1, padding: "8px", fontSize: 12, fontWeight: 700, background: "rgba(255,64,96,0.15)", border: "1px solid var(--red)", color: "var(--red)" }}>
                             ✗ WRONG<br /><span style={{ fontSize: 10 }}>forfeit all</span>
                         </button>
-                        {/* STOP available from spin 1 onwards (i >= 0 means always when active and has a value) */}
-                        <button className="btn" onClick={handleStop} disabled={runningTotal === 0}
+                        <button className="btn" onClick={() => handleStop(i)} disabled={!spinResult(i)}
                             style={{ flex: 1, padding: "8px", fontSize: 12, fontWeight: 700, background: "rgba(255,180,0,0.15)", border: "1px solid var(--amber)", color: "var(--amber)" }}>
-                            🛑 STOP<br /><span style={{ fontSize: 10 }}>bank {runningTotal}pts</span>
+                            🛑 STOP<br /><span style={{ fontSize: 10 }}>bank {runningTotal + spinResult(i)}pts</span>
                         </button>
                     </div>
                 )}
@@ -1681,8 +1684,8 @@ function SpinTeamCard({ name, accent, st, onChange }: {
             )}
 
             {/* Banked summary */}
-            <div style={{ marginTop: 12, textAlign: "center", fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: st.forfeited ? "var(--red)" : accent }}>
-                {st.forfeited ? "FORFEITED — 0 pts" : `BANKED: ${st.banked} pts`}
+            <div style={{ marginTop: 12, textAlign: "center", fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, color: st.forfeited ? "var(--red)" : st.stopped ? "var(--amber)" : accent }}>
+            {st.forfeited ? "FORFEITED — 0 pts" : st.stopped ? `🛑 STOPPED & BANKED: ${st.banked} pts` : `BANKED: ${st.banked} pts`}
             </div>
         </div>
     );
@@ -1934,7 +1937,7 @@ function ActivityLogPanel() {
             {!loading && log.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {log.map((entry, i) => (
-                        <div key={i} style={{ background: "var(--surface)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "12px 16px", display: "grid", gridTemplateColumns: "160px 100px 1fr", gap: 12, alignItems: "start" }}>
+                        <div key={i} style={{ background: "var(--surface)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "12px 16px", display: "grid", gridTemplateColumns: "160px 100px 1fr auto", gap: 12, alignItems: "start" }}>
                             <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "var(--text3)" }}>
                                 {new Date(entry.timestamp).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                             </span>
@@ -1945,6 +1948,11 @@ function ActivityLogPanel() {
                                 <div style={{ fontSize: 13, color: "var(--text)", marginBottom: entry.detail ? 4 : 0 }}>{entry.action}</div>
                                 {entry.detail && <div style={{ fontSize: 11, color: "var(--text3)", fontFamily: "'DM Mono', monospace" }}>{entry.detail}</div>}
                             </div>
+                            {entry.device && (
+                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--text3)", whiteSpace: "nowrap", background: "var(--surface2)", padding: "3px 8px", borderRadius: 6 }}>
+                                    {entry.device}{entry.ip ? ` · ${entry.ip}` : ""}
+                                </span>
+                            )}
                         </div>
                     ))}
                 </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import "../shared/GlobalStyles.css";
-import { saveQuestions, fetchQuestions, appendActivity } from "../../firebase";
+import { saveQuestions, fetchQuestions, appendActivity, getDeviceName, getClientIP } from "../../firebase";
 import type { ActivityEntry } from "../../firebase";
 import type { Question, Category, QuestionsData } from "../../hooks/useQuestions";
 import { ROUND_1_QUESTIONS, ROUND_2_CATEGORIES, ROUND_3_QUESTIONS } from "../../hooks/useQuestions";
@@ -137,7 +137,7 @@ export function QuestionsEditorView({ onBack, username }: Props) {
             if (r2BulkMap[cat.id]?.trim() || JSON.stringify(orig?.questions) !== JSON.stringify(cat.questions))
                 details.push(`Round 2 › ${cat.emoji} ${cat.name} (${cat.questions?.length ?? 0} questions)`);
         });
-        await appendActivity({ timestamp: Date.now(), username, role: "Questions-Entry", action: `Saved questions (Round ${tab})`, detail: details.join(" | ") || undefined } as ActivityEntry);
+        await appendActivity({ timestamp: Date.now(), username, role: "Questions-Entry", action: `Saved questions (Round ${tab})`, detail: details.join(" | ") || undefined, device: getDeviceName(), ip: await getClientIP() } as ActivityEntry);
 
         setR1(finalR1); setR3(finalR3); setR2(finalR2);
         setR1Bulk(""); setR3Bulk(""); setR2BulkMap({});
@@ -152,10 +152,19 @@ export function QuestionsEditorView({ onBack, username }: Props) {
         const finalR2 = round === 2 ? r2.map((c) => c.id === catId ? { ...c, questions: updatedList } : c) : r2;
         await saveQuestions({ round1: finalR1, round2: finalR2, round3: finalR3 });
         const catName = round === 2 ? r2.find((c) => c.id === catId)?.name : undefined;
-        await appendActivity({ timestamp: Date.now(), username, role: "Questions-Entry", action: `Saved Round ${round}${catName ? ` › ${catName}` : ""} (inline edit)`, detail: `${updatedList.length} questions` } as ActivityEntry);
+        await appendActivity({ timestamp: Date.now(), username, role: "Questions-Entry", action: `Saved Round ${round}${catName ? ` › ${catName}` : ""} (inline edit)`, detail: `${updatedList.length} questions`, device: getDeviceName(), ip: await getClientIP() } as ActivityEntry);
         setSaving(false); setSaved(true);
         setTimeout(() => setSaved(false), 2000);
     }
+
+    const logDelete = async (round: number, questionText: string, catName?: string) => {
+        await appendActivity({
+            timestamp: Date.now(), username, role: "Questions-Entry",
+            action: `Deleted question — Round ${round}${catName ? ` › ${catName}` : ""}`,
+            detail: questionText,
+            device: getDeviceName(), ip: await getClientIP(),
+        } as ActivityEntry);
+    };
 
     function addR2Category() {
         const newId = Math.max(0, ...r2.map((c) => c.id)) + 1;
@@ -251,7 +260,7 @@ export function QuestionsEditorView({ onBack, username }: Props) {
                                         onChange={(e) => { setR1(r1.map((x, j) => j === i ? { ...x, answer: e.target.value } : x)); markDirty(); }} />
                                     <button className="btn" onClick={() => saveOneQuestion(1, null, r1)} disabled={saving}
                                         style={{ background: "rgba(0,200,150,0.15)", color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "8px 10px", fontSize: 12 }}>💾</button>
-                                    <button className="btn" onClick={() => { setR1(r1.filter((_, j) => j !== i)); markDirty(); }}
+                                    <button className="btn" onClick={() => { setR1(r1.filter((_, j) => j !== i)); markDirty(); logDelete(1, q.question); }}
                                         style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", border: "1px solid var(--red)", padding: "8px 12px", fontSize: 12 }}>✕</button>
                                 </div>
                             ))}
@@ -300,7 +309,7 @@ export function QuestionsEditorView({ onBack, username }: Props) {
                                                     onClick={() => saveOneQuestion(2, cat.id, r2.find((c) => c.id === cat.id)?.questions ?? [])}
                                                     style={{ background: "rgba(0,200,150,0.15)", color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "8px 10px", fontSize: 12 }}>💾</button>
                                                 <button className="btn" onClick={() => { setR2(r2.map((c) => c.id === cat.id
-                                                    ? { ...c, questions: (c.questions ?? []).filter((_, j) => j !== i) } : c)); markDirty(); }}
+                                                    ? { ...c, questions: (c.questions ?? []).filter((_, j) => j !== i) } : c)); markDirty(); logDelete(2, q.question, cat.name); }}
                                                     style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", border: "1px solid var(--red)", padding: "8px 12px", fontSize: 12 }}>✕</button>
                                             </div>
                                         ))}
@@ -348,7 +357,7 @@ export function QuestionsEditorView({ onBack, username }: Props) {
                                         onChange={(e) => { setR3(r3.map((x, j) => j === i ? { ...x, answer: e.target.value } : x)); markDirty(); }} />
                                     <button className="btn" onClick={() => saveOneQuestion(3, null, r3)} disabled={saving}
                                         style={{ background: "rgba(0,200,150,0.15)", color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "8px 10px", fontSize: 12 }}>💾</button>
-                                    <button className="btn" onClick={() => { setR3(r3.filter((_, j) => j !== i)); markDirty(); }}
+                                    <button className="btn" onClick={() => { setR3(r3.filter((_, j) => j !== i)); markDirty(); logDelete(3, q.question); }}
                                         style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", border: "1px solid var(--red)", padding: "8px 12px", fontSize: 12 }}>✕</button>
                                 </div>
                             ))}
