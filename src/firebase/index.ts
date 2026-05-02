@@ -7,14 +7,14 @@ import { DEFAULT_CATEGORIES } from "../data/categories";
 
 // ─── Config ────────────────────────────────────────────────────────────────
 const firebaseConfig = {
-    apiKey: "AIzaSyABmnlQj4dew4cVMCOpGrUyQk2Tdw4KRyI",
-    authDomain: "scoreboard-9571d.firebaseapp.com",
-    databaseURL: "https://scoreboard-9571d-default-rtdb.firebaseio.com",
-    projectId: "scoreboard-9571d",
-    storageBucket: "scoreboard-9571d.firebasestorage.app",
-    messagingSenderId: "374688575278",
-    appId: "1:374688575278:web:11061ad820664e300a94bf",
-    measurementId: "G-B4BFNW02XG",
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
 const app: FirebaseApp = initializeApp(firebaseConfig);

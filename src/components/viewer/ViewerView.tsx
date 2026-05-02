@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import "../shared/GlobalStyles.css";
 import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
 import { useFirebaseState } from "../../hooks/useFirebaseState";
@@ -11,13 +11,51 @@ const STATUS_LABEL: Record<string, string> = { connecting: "CONNECTING", live: "
 
 type Tab = "scores" | "questions";
 
+function LoadingSkeleton() {
+    const box = (w: string, h: number, mb = 0) => (
+        <div style={{ width: w, height: h, borderRadius: 8, background: "rgba(255,255,255,0.06)", marginBottom: mb, animation: "pulse 1.5s ease infinite" }} />
+    );
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "0 24px", maxWidth: 900, margin: "0 auto", width: "100%" }}>
+            {box("60%", 48, 8)}
+            <div style={{ display: "flex", gap: 16 }}>
+                {box("50%", 120)}
+                {box("50%", 120)}
+            </div>
+            {box("100%", 80)}
+            {box("80%", 32)}
+        </div>
+    );
+}
+
 export function ViewerView({ onBack }: Props) {
     const { state, status } = useFirebaseState();
     const [activeTab, setActiveTab] = useState<Tab>("scores");
+    const [isFullscreen, setIsFullscreen] = useState(false);
     const color = STATUS_COLOR[status];
+
+    const toggleFullscreen = useCallback(() => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => setIsFullscreen(true));
+        } else {
+            document.exitFullscreen().then(() => setIsFullscreen(false));
+        }
+    }, []);
 
     return (
         <div style={{ minHeight: "100vh", background: "radial-gradient(ellipse 100% 50% at 50% 0%, rgba(0,212,255,0.04), transparent), var(--bg)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+
+            {/* Offline warning banner */}
+            {status === "offline" && (
+                <div style={{
+                    width: "100%", background: "rgba(255,64,96,0.15)", borderBottom: "2px solid var(--red)",
+                    padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "center",
+                    gap: 10, fontFamily: "'DM Mono', monospace", fontSize: 13, color: "var(--red)",
+                }}>
+                    ⚠ CONNECTION LOST — Scores may be outdated. Reconnecting…
+                </div>
+            )}
+
             {/* Top bar */}
             <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "20px 24px", flexWrap: "wrap", gap: 12 }}>
                 <button className="btn" onClick={onBack} style={{ background: "var(--surface2)", color: "var(--text2)", padding: "10px 20px", fontSize: 13, border: "1px solid var(--border)" }}>
@@ -28,6 +66,11 @@ export function ViewerView({ onBack }: Props) {
                         <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, boxShadow: status === "live" ? `0 0 10px ${color}` : "none", animation: status === "live" ? "pulse 2s infinite" : "none" }} />
                         {STATUS_LABEL[status]}
                     </div>
+                    <button className="btn" onClick={toggleFullscreen} title="Toggle fullscreen"
+                        style={{ background: "var(--surface2)", color: "var(--text2)", padding: "8px 14px", fontSize: 16, border: "1px solid var(--border)" }}>
+                        {isFullscreen ? "⛶" : "⛶"}
+                        <span style={{ fontSize: 12, marginLeft: 6 }}>{isFullscreen ? "EXIT" : "FULLSCREEN"}</span>
+                    </button>
                 </div>
             </div>
 
@@ -48,11 +91,17 @@ export function ViewerView({ onBack }: Props) {
                     ))}
                 </div>
 
-                {activeTab === "scores" && <ScoreboardDisplay state={state} showScores={true} />}
-                {activeTab === "questions" && (
-                    <div style={{ height: "calc(100vh - 160px)", overflowY: "auto", borderRadius: 16 }}>
-                        <QuestionsPanel round={state.timerRound} showAnswers={true} />
-                    </div>
+                {status === "connecting" ? (
+                    <LoadingSkeleton />
+                ) : (
+                    <>
+                        {activeTab === "scores" && <ScoreboardDisplay state={state} showScores={true} />}
+                        {activeTab === "questions" && (
+                            <div style={{ height: "calc(100vh - 160px)", overflowY: "auto", borderRadius: 16 }}>
+                                <QuestionsPanel round={state.timerRound} showAnswers={true} />
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>

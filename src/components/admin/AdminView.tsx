@@ -286,6 +286,7 @@ export function AdminView({ onBack, username: _username }: Props) {
     };
 
     const handleTimerReset = async () => {
+        if (!confirm("Reset the timer?")) return;
         pauseAllSounds();
         setIsMuted(true);
         await pushState({
@@ -298,6 +299,7 @@ export function AdminView({ onBack, username: _username }: Props) {
     };
 
     const handleClearScores = async () => {
+        if (!confirm("⚠️ Clear both team scores to 0? This cannot be undone.")) return;
         await pushState({
             ...state,
             teamA: { ...state.teamA, score: 0 },
@@ -1806,6 +1808,39 @@ function ScoreHistoryPanel() {
         a.click();
     };
 
+    const handlePrintPDF = () => {
+        const rows = [...history].reverse();
+        const tableRows = rows.map((r) => `
+            <tr>
+                <td>${new Date(r.timestamp).toLocaleString()}</td>
+                <td>${r.period}</td>
+                <td>${r.teamAName}</td>
+                <td>${r.teamAScore}</td>
+                <td>${r.teamBName}</td>
+                <td>${r.teamBScore}</td>
+            </tr>`).join("");
+        const win = window.open("", "_blank");
+        if (!win) return;
+        win.document.write(`
+            <html><head><title>Score History</title>
+            <style>
+                body { font-family: sans-serif; padding: 24px; }
+                h2 { margin-bottom: 16px; }
+                table { width: 100%; border-collapse: collapse; font-size: 13px; }
+                th { background: #1a1d23; color: #fff; padding: 10px 12px; text-align: left; }
+                td { padding: 9px 12px; border-bottom: 1px solid #eee; }
+                tr:nth-child(even) td { background: #f9f9f9; }
+            </style></head>
+            <body>
+                <h2>Bongo Quiz — Score History</h2>
+                <p style="color:#666;font-size:12px;margin-bottom:16px">Exported ${new Date().toLocaleString()}</p>
+                <table><thead><tr><th>Time</th><th>Period</th><th>Team A</th><th>Score A</th><th>Team B</th><th>Score B</th></tr></thead>
+                <tbody>${tableRows}</tbody></table>
+            </body></html>`);
+        win.document.close();
+        win.print();
+    };
+
     const cell: React.CSSProperties = {
         padding: "12px 16px", fontFamily: "'DM Sans', sans-serif", fontSize: 14,
         borderBottom: "1px solid rgba(255,255,255,0.05)",
@@ -1827,6 +1862,10 @@ function ScoreHistoryPanel() {
                     <button className="btn" onClick={handleExportCSV} disabled={history.length === 0}
                         style={{ background: "rgba(0,180,255,0.12)", color: "var(--cyan)", border: "1px solid var(--cyan)", padding: "8px 16px", fontSize: 12 }}>
                         ↓ Export CSV
+                    </button>
+                    <button className="btn" onClick={handlePrintPDF} disabled={history.length === 0}
+                        style={{ background: "rgba(0,229,160,0.12)", color: "var(--green)", border: "1px solid var(--green)", padding: "8px 16px", fontSize: 12 }}>
+                        🖨 Print PDF
                     </button>
                     <button className="btn" onClick={handleClear}
                         style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", border: "1px solid var(--red)", padding: "8px 16px", fontSize: 12 }}>

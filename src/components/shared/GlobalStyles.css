@@ -26,6 +26,24 @@
     --red: #ff4060;
 }
 
+[data-theme="light"] {
+    --bg: #f5f7fa;
+    --surface: #e1f0f5;
+    --surface2: #f0f2f5;
+    --surface3: #e4e7eb;
+    --border: rgba(0, 0, 0, 0.08);
+    --border2: rgba(0, 0, 0, 0.12);
+    --text: #1a1d23;
+    --text2: #5a6270;
+    --text3: #8892a4;
+    --cyan: #0099cc;
+    --cyan-dim: rgba(0, 153, 204, 0.15);
+    --amber: #e69500;
+    --amber-dim: rgba(230, 149, 0, 0.15);
+    --green: #00b377;
+    --red: #d63651;
+}
+
 body {
     background: var(--bg);
     font-family: 'DM Sans', sans-serif;

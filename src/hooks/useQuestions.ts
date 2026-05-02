@@ -21,25 +21,6 @@ export interface QuestionsData {
     round3: Question[];
 }
 
-export interface Question {
-    id: number;
-    question: string;
-    answer: string;
-}
-
-export interface Category {
-    id: number;
-    name: string;
-    emoji: string;
-    questions: Question[];
-}
-
-export interface QuestionsData {
-    round1: Question[];
-    round2: Category[];
-    round3: Question[];
-}
-
 // ── ROUND 1 ── 20 general-knowledge questions ──────────────────────────────
 export const ROUND_1_QUESTIONS: Question[] = [
     // { id: 1,  question: "My mothers mother is my?",                               answer: "Grand Mother" },

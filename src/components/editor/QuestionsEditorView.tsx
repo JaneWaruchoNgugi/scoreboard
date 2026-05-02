@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import mammoth from "mammoth";
 import "../shared/GlobalStyles.css";
 import { saveQuestions, fetchQuestions, appendActivity, getDeviceName, getClientIP } from "../../firebase";
 import type { ActivityEntry } from "../../firebase";
@@ -72,13 +73,186 @@ function parseBulkQA(text: string, startId = 1): Question[] {
     return questions;
 }
 
+function triggerDownload(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+}
+
+function buildCSV(r1: Question[], r2: Category[], r3: Question[]): string {
+    const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
+    const rows: string[] = ["Round,Category,#,Question,Answer"];
+    r1.forEach((q, i) => rows.push(`Round 1,,${i + 1},${esc(q.question)},${esc(q.answer)}`));
+    r2.forEach((cat) => (cat.questions ?? []).forEach((q, i) =>
+        rows.push(`Round 2,${esc(cat.emoji + " " + cat.name)},${i + 1},${esc(q.question)},${esc(q.answer)}`)
+    ));
+    r3.forEach((q, i) => rows.push(`Round 3,,${i + 1},${esc(q.question)},${esc(q.answer)}`));
+    return rows.join("\n");
+}
+
+function buildWordHTML(r1: Question[], r2: Category[], r3: Question[]): string {
+    const qRows = (qs: Question[]) => qs.map((q, i) =>
+        `<tr><td style="padding:4px 8px;border:1px solid #ccc;width:30px">${i + 1}</td><td style="padding:4px 8px;border:1px solid #ccc">${q.question}</td><td style="padding:4px 8px;border:1px solid #ccc">${q.answer}</td></tr>`
+    ).join("");
+    const table = (rows: string) =>
+        `<table style="border-collapse:collapse;width:100%;margin-bottom:20px"><thead><tr><th style="padding:4px 8px;border:1px solid #ccc">#</th><th style="padding:4px 8px;border:1px solid #ccc">Question</th><th style="padding:4px 8px;border:1px solid #ccc">Answer</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+    const r2Sections = r2.map((cat) =>
+        `<h3>${cat.emoji} ${cat.name} (${(cat.questions ?? []).length} questions)</h3>${table(qRows(cat.questions ?? []))}`
+    ).join("");
+
+    return `<html><head><meta charset="utf-8"/></head><body style="font-family:Arial,sans-serif;font-size:13px">
+<h1>Bongo Quiz — Questions</h1>
+<h2>Round 1 (${r1.length} questions)</h2>${table(qRows(r1))}
+<h2>Round 2 — Categories</h2>${r2Sections}
+<h2>Round 3 (${r3.length} questions)</h2>${table(qRows(r3))}
+</body></html>`;
+}
+
 type RoundTab = 1 | 2 | 3;
+
+// Parse the CSV format we export: Round,Category,#,Question,Answer
+function parseCSVToRounds(text: string): { r1: Question[]; r2: Category[]; r3: Question[] } {
+    const r1: Question[] = [], r3: Question[] = [];
+    const catMap = new Map<string, Category>();
+    let catIdCounter = 1;
+
+    const rows = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    for (const row of rows) {
+        // Simple CSV split respecting quoted fields
+        const cols: string[] = [];
+        let cur = "", inQ = false;
+        for (let i = 0; i < row.length; i++) {
+            if (row[i] === '"') { inQ = !inQ; }
+            else if (row[i] === "," && !inQ) { cols.push(cur); cur = ""; }
+            else cur += row[i];
+        }
+        cols.push(cur);
+        const [round, category, , question, answer] = cols.map((c) => c.trim());
+        if (!question || question.toLowerCase() === "question") continue; // skip header
+        const q: Question = { id: 0, question, answer: answer ?? "" };
+        if (round === "Round 1") r1.push(q);
+        else if (round === "Round 3") r3.push(q);
+        else if (round === "Round 2") {
+            const key = category ?? "";
+            if (!catMap.has(key)) catMap.set(key, { id: catIdCounter++, name: key.replace(/^\S+\s/, ""), emoji: key.match(/^\S+/)?.[0] ?? "📝", questions: [] });
+            catMap.get(key)!.questions!.push(q);
+        }
+    }
+    r1.forEach((q, i) => (q.id = i + 1));
+    r3.forEach((q, i) => (q.id = i + 1));
+    catMap.forEach((cat) => cat.questions!.forEach((q, i) => (q.id = i + 1)));
+    return { r1, r2: Array.from(catMap.values()), r3 };
+}
+
+interface UploadModalProps {
+    onClose: () => void;
+    onImport: (data: { r1?: Question[]; r2?: Category[]; r3?: Question[] }, mode: "replace" | "append") => void;
+}
+
+function UploadModal({ onClose, onImport }: UploadModalProps) {
+    const [round, setRound] = useState<"all" | "1" | "2" | "3">("all");
+    const [mode, setMode] = useState<"replace" | "append">("append");
+    const [status, setStatus] = useState("");
+    const fileRef = useRef<HTMLInputElement>(null);
+
+    async function handleFile(file: File) {
+        setStatus("Parsing…");
+        try {
+            let text = "";
+            if (file.name.endsWith(".csv")) {
+                text = await file.text();
+                const parsed = parseCSVToRounds(text);
+                const data = round === "all" ? parsed
+                    : round === "1" ? { r1: parsed.r1 }
+                    : round === "2" ? { r2: parsed.r2 }
+                    : { r3: parsed.r3 };
+                onImport(data, mode);
+                setStatus(`✓ Imported from CSV`);
+            } else if (file.name.endsWith(".docx")) {
+                const buf = await file.arrayBuffer();
+                const result = await mammoth.extractRawText({ arrayBuffer: buf });
+                text = result.value;
+                // For docx, parse as plain Q&A text into the selected round
+                const qs = parseBulkQA(text);
+                if (round === "all" || round === "1") onImport({ r1: qs }, mode);
+                else if (round === "2") { /* docx → round 2 not structured, put in bulk */ onImport({ r1: qs }, mode); }
+                else onImport({ r3: qs }, mode);
+                setStatus(`✓ Imported ${qs.length} questions from Word`);
+            } else {
+                setStatus("❌ Unsupported file. Use .csv or .docx");
+            }
+        } catch (e) {
+            setStatus("❌ Failed to parse file");
+            console.error(e);
+        }
+    }
+
+    return (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" }}
+            onClick={(e) => e.target === e.currentTarget && onClose()}>
+            <div style={{ background: "var(--surface)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 16, padding: 28, width: 420, display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 20, letterSpacing: "0.1em" }}>UPLOAD QUESTIONS</span>
+                    <button className="btn" onClick={onClose} style={{ background: "transparent", color: "var(--text2)", border: "none", fontSize: 18, padding: "4px 8px" }}>✕</button>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: "0.15em", color: "var(--text3)" }}>TARGET ROUND</span>
+                    <div style={{ display: "flex", gap: 8 }}>
+                        {(["all", "1", "2", "3"] as const).map((r) => (
+                            <button key={r} className="btn" onClick={() => setRound(r)}
+                                style={{ flex: 1, padding: "8px 4px", fontSize: 12, background: round === r ? "var(--cyan)" : "var(--surface2)", color: round === r ? "var(--bg)" : "var(--text2)", border: "1px solid rgba(255,255,255,0.08)", fontWeight: round === r ? 700 : 400 }}>
+                                {r === "all" ? "All" : `R${r}`}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, letterSpacing: "0.15em", color: "var(--text3)" }}>IMPORT MODE</span>
+                    <div style={{ display: "flex", gap: 8 }}>
+                        {(["append", "replace"] as const).map((m) => (
+                            <button key={m} className="btn" onClick={() => setMode(m)}
+                                style={{ flex: 1, padding: "8px 4px", fontSize: 12, background: mode === m ? "var(--cyan)" : "var(--surface2)", color: mode === m ? "var(--bg)" : "var(--text2)", border: "1px solid rgba(255,255,255,0.08)", fontWeight: mode === m ? 700 : 400 }}>
+                                {m === "append" ? "Append" : "Replace"}
+                            </button>
+                        ))}
+                    </div>
+                    <span style={{ fontFamily: "'DM Mono',monospace", fontSize: 10, color: "var(--text3)" }}>
+                        {mode === "append" ? "New questions added to existing ones" : "⚠ Existing questions will be overwritten"}
+                    </span>
+                </div>
+
+                <div style={{ border: "2px dashed rgba(255,255,255,0.15)", borderRadius: 10, padding: "24px 16px", textAlign: "center", cursor: "pointer" }}
+                    onClick={() => fileRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}>
+                    <input ref={fileRef} type="file" accept=".csv,.docx" style={{ display: "none" }}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+                    <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
+                    <div style={{ color: "var(--text2)", fontSize: 13 }}>Click or drag & drop</div>
+                    <div style={{ color: "var(--text3)", fontSize: 11, marginTop: 4 }}>.csv or .docx</div>
+                </div>
+
+                {status && (
+                    <div style={{ fontFamily: "'DM Mono',monospace", fontSize: 12, color: status.startsWith("✓") ? "var(--green)" : "var(--red)", textAlign: "center" }}>
+                        {status}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
 
 export function QuestionsEditorView({ onBack, username }: Props) {
     const [tab, setTab] = useState<RoundTab>(1);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [dirty, setDirty] = useState(false);
+    const [dlOpen, setDlOpen] = useState(false);
+    const [uploadOpen, setUploadOpen] = useState(false);
 
     useEffect(() => {
         const handler = (e: BeforeUnloadEvent) => { if (dirty) e.preventDefault(); };
@@ -99,6 +273,13 @@ export function QuestionsEditorView({ onBack, username }: Props) {
     const [r2, setR2] = useState<Category[]>(ROUND_2_CATEGORIES);
 
     const markDirty = () => setDirty(true);
+
+    function handleImport(data: { r1?: Question[]; r2?: Category[]; r3?: Question[] }, mode: "replace" | "append") {
+        if (data.r1) setR1(mode === "replace" ? data.r1 : [...r1, ...data.r1]);
+        if (data.r2) setR2(mode === "replace" ? data.r2 : [...r2, ...data.r2]);
+        if (data.r3) setR3(mode === "replace" ? data.r3 : [...r3, ...data.r3]);
+        markDirty();
+    }
 
     // Bulk paste buffers
     const [r1Bulk, setR1Bulk] = useState("");
@@ -199,6 +380,7 @@ export function QuestionsEditorView({ onBack, username }: Props) {
     };
 
     return (
+        <>
         <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
             {/* Top bar */}
             <div style={{
@@ -214,10 +396,41 @@ export function QuestionsEditorView({ onBack, username }: Props) {
                 <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "0.1em", color: "var(--text)" }}>
                     QUESTIONS EDITOR
                 </span>
-                <button className="btn" onClick={handleSave} disabled={saving}
-                    style={{ background: saved ? "var(--green)" : "var(--cyan)", color: "var(--bg)", padding: "9px 22px", fontSize: 13, fontWeight: 700 }}>
-                    {saving ? "Saving…" : saved ? "✓ Saved" : "Save to DB"}
-                </button>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <button className="btn" onClick={() => setUploadOpen(true)}
+                        style={{ background: "var(--surface2)", color: "var(--text2)", padding: "9px 16px", fontSize: 13, border: "1px solid rgba(255,255,255,0.1)" }}>
+                        ⬆ Upload
+                    </button>
+                    {/* Download dropdown */}
+                    <div style={{ position: "relative" }}>
+                        <button className="btn" onClick={() => setDlOpen((o) => !o)}
+                            style={{ background: "var(--surface2)", color: "var(--text2)", padding: "9px 16px", fontSize: 13, border: "1px solid rgba(255,255,255,0.1)" }}>
+                            ⬇ Download ▾
+                        </button>
+                        {dlOpen && (
+                            <div style={{
+                                position: "absolute", top: "110%", right: 0, zIndex: 200,
+                                background: "var(--surface2)", border: "1px solid rgba(255,255,255,0.1)",
+                                borderRadius: 10, overflow: "hidden", minWidth: 160,
+                                boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+                            }}>
+                                {[
+                                    { label: "📄 CSV", action: () => { triggerDownload(new Blob([buildCSV(r1, r2, r3)], { type: "text/csv" }), "bongo-quiz-questions.csv"); setDlOpen(false); } },
+                                    { label: "📝 Word (.doc)", action: () => { triggerDownload(new Blob([buildWordHTML(r1, r2, r3)], { type: "application/msword" }), "bongo-quiz-questions.doc"); setDlOpen(false); } },
+                                ].map(({ label, action }) => (
+                                    <button key={label} className="btn" onClick={action}
+                                        style={{ display: "block", width: "100%", textAlign: "left", background: "transparent", color: "var(--text)", padding: "11px 16px", fontSize: 13, border: "none", borderRadius: 0, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <button className="btn" onClick={handleSave} disabled={saving}
+                        style={{ background: saved ? "var(--green)" : "var(--cyan)", color: "var(--bg)", padding: "9px 22px", fontSize: 13, fontWeight: 700 }}>
+                        {saving ? "Saving…" : saved ? "✓ Saved" : "Save to DB"}
+                    </button>
+                </div>
             </div>
 
             {/* Tabs */}
@@ -366,5 +579,7 @@ export function QuestionsEditorView({ onBack, username }: Props) {
                 )}
             </div>
         </div>
+        {uploadOpen && <UploadModal onClose={() => setUploadOpen(false)} onImport={(data, mode) => { handleImport(data, mode); setUploadOpen(false); }} />}
+        </>
     );
 }
