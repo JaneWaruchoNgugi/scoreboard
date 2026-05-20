@@ -24,7 +24,7 @@ const ROLES = [
     {
         role: "admin",
         icon: "⚡",
-        label: "Charles",
+        label: "Jane",
         desc: "Control the board",
         accent: "var(--amber)",
         dimAccent: "var(--amber-dim)",

@@ -263,9 +263,9 @@ export function useQuestions() {
             if (!raw) return;
             const d = raw as Partial<QuestionsData>;
             setData({
-                round1: d.round1?.length ? d.round1 : ROUND_1_QUESTIONS,
-                round2: d.round2?.length ? d.round2 : ROUND_2_CATEGORIES,
-                round3: d.round3?.length ? d.round3 : ROUND_3_QUESTIONS,
+                round1: Array.isArray(d.round1) ? d.round1 : ROUND_1_QUESTIONS,
+                round2: Array.isArray(d.round2) ? d.round2 : ROUND_2_CATEGORIES,
+                round3: Array.isArray(d.round3) ? d.round3 : ROUND_3_QUESTIONS,
             });
         });
     }, []);

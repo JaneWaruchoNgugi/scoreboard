@@ -73,6 +73,85 @@ function parseBulkQA(text: string, startId = 1): Question[] {
     return questions;
 }
 
+const DOCX_CATEGORY_EMOJIS: Record<string, string> = {
+    "GENERAL KNOWLEDGE": "\u{1F4A1}",
+    "HISTORY AND GOVERNMENT": "\u{1F3DB}\u{FE0F}",
+    "GEOGRAPHY": "\u{1F30D}",
+    "RELIGION": "\u{271D}\u{FE0F}",
+    "SPORTS": "\u{26BD}",
+    "SCIENCE": "\u{1F52C}",
+    "KISWAHILI": "\u{1F4D6}",
+    "ENTERTAINMENT": "\u{1F3AC}",
+};
+
+function cleanDocxAnswer(answer: string): string {
+    return answer.replace(/^[-\s]+/, "").replace(/^A:\s*/i, "").trim();
+}
+
+function isDocxSectionHeading(line: string): boolean {
+    if (line.includes("?")) return false;
+    if (/^quick\s*fire$/i.test(line)) return true;
+    if (/^round\s*3$/i.test(line)) return true;
+    return /^[A-Z0-9&()\/ -]+$/.test(line) && /[A-Z]/.test(line);
+}
+
+function parseDocxQuestionLines(lines: string[], startId = 1): Question[] {
+    const questions: Question[] = [];
+    let id = startId;
+    for (const raw of lines) {
+        const line = raw.trim();
+        if (!line) continue;
+        const qMark = line.lastIndexOf("?");
+        if (qMark === -1) continue;
+        const question = line.slice(0, qMark + 1).replace(/\s+\?/g, "?").trim();
+        const answer = cleanDocxAnswer(line.slice(qMark + 1));
+        if (question) questions.push({ id: id++, question, answer });
+    }
+    return questions;
+}
+
+function parseWordQuizDocument(text: string): { r1: Question[]; r2: Category[]; r3: Question[] } {
+    const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+    const r1Lines: string[] = [];
+    const r3Lines: string[] = [];
+    const categories: Array<{ heading: string; lines: string[] }> = [];
+    let active: "r1" | "r2" | "r3" | null = null;
+    let currentCategory: { heading: string; lines: string[] } | null = null;
+
+    for (const line of lines) {
+        if (isDocxSectionHeading(line)) {
+            if (/^quick\s*fire$/i.test(line)) {
+                active = "r1";
+                currentCategory = null;
+            } else if (/^round\s*3$/i.test(line)) {
+                active = "r3";
+                currentCategory = null;
+            } else {
+                active = "r2";
+                currentCategory = { heading: line, lines: [] };
+                categories.push(currentCategory);
+            }
+            continue;
+        }
+
+        if (active === "r1") r1Lines.push(line);
+        else if (active === "r3") r3Lines.push(line);
+        else if (active === "r2" && currentCategory) currentCategory.lines.push(line);
+    }
+
+    const r1 = parseDocxQuestionLines(r1Lines);
+    const r3 = parseDocxQuestionLines(r3Lines);
+    const r2 = categories.map((cat, index) => ({
+        id: index + 1,
+        name: cat.heading,
+        emoji: DOCX_CATEGORY_EMOJIS[cat.heading] ?? "\u{1F4DD}",
+        questions: parseDocxQuestionLines(cat.lines),
+    })).filter((cat) => (cat.questions?.length ?? 0) > 0);
+
+    if (r1.length || r2.length || r3.length) return { r1, r2, r3 };
+    return { r1: parseBulkQA(text), r2: [], r3: [] };
+}
+
 function triggerDownload(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -161,7 +240,8 @@ function UploadModal({ onClose, onImport }: UploadModalProps) {
         setStatus("Parsing…");
         try {
             let text = "";
-            if (file.name.endsWith(".csv")) {
+            const fileName = file.name.toLowerCase();
+            if (fileName.endsWith(".csv")) {
                 text = await file.text();
                 const parsed = parseCSVToRounds(text);
                 const data = round === "all" ? parsed
@@ -170,16 +250,18 @@ function UploadModal({ onClose, onImport }: UploadModalProps) {
                     : { r3: parsed.r3 };
                 onImport(data, mode);
                 setStatus(`✓ Imported from CSV`);
-            } else if (file.name.endsWith(".docx")) {
+            } else if (fileName.endsWith(".docx")) {
                 const buf = await file.arrayBuffer();
                 const result = await mammoth.extractRawText({ arrayBuffer: buf });
                 text = result.value;
-                // For docx, parse as plain Q&A text into the selected round
-                const qs = parseBulkQA(text);
-                if (round === "all" || round === "1") onImport({ r1: qs }, mode);
-                else if (round === "2") { /* docx → round 2 not structured, put in bulk */ onImport({ r1: qs }, mode); }
-                else onImport({ r3: qs }, mode);
-                setStatus(`✓ Imported ${qs.length} questions from Word`);
+                const parsed = parseWordQuizDocument(text);
+                const data = round === "all" ? parsed
+                    : round === "1" ? { r1: parsed.r1 }
+                    : round === "2" ? { r2: parsed.r2 }
+                    : { r3: parsed.r3 };
+                const total = (data.r1?.length ?? 0) + (data.r3?.length ?? 0) + (data.r2?.reduce((sum, cat) => sum + (cat.questions?.length ?? 0), 0) ?? 0);
+                onImport(data, mode);
+                setStatus("✓ Imported " + total + " questions from Word");
             } else {
                 setStatus("❌ Unsupported file. Use .csv or .docx");
             }
@@ -274,10 +356,56 @@ export function QuestionsEditorView({ onBack, username }: Props) {
 
     const markDirty = () => setDirty(true);
 
+    function normalizeCategoryName(name: string): string {
+        return name.trim().replace(/\s+/g, " ").toLowerCase();
+    }
+
+    function renumberQuestions(questions: Question[]): Question[] {
+        const seen = new Set<string>();
+        return questions.filter((question) => {
+            const key = question.question.trim().toLowerCase();
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        }).map((question, index) => ({ ...question, id: index + 1 }));
+    }
+
+    function mergeRound2Categories(existing: Category[], incoming: Category[]): Category[] {
+        const merged: Category[] = [];
+        const indexByName = new Map<string, number>();
+
+        const addOrMerge = (category: Category) => {
+            const key = normalizeCategoryName(category.name);
+            const existingIndex = indexByName.get(key);
+            if (existingIndex === undefined) {
+                indexByName.set(key, merged.length);
+                merged.push({
+                    ...category,
+                    id: merged.length + 1,
+                    name: category.name.trim(),
+                    questions: renumberQuestions(category.questions ?? []),
+                });
+                return;
+            }
+
+            const target = merged[existingIndex];
+            const questions = [...(target.questions ?? []), ...(category.questions ?? [])];
+            merged[existingIndex] = {
+                ...target,
+                emoji: target.emoji || category.emoji,
+                questions: renumberQuestions(questions),
+            };
+        };
+
+        existing.forEach(addOrMerge);
+        incoming.forEach(addOrMerge);
+        return merged.map((category, index) => ({ ...category, id: index + 1 }));
+    }
+
     function handleImport(data: { r1?: Question[]; r2?: Category[]; r3?: Question[] }, mode: "replace" | "append") {
-        if (data.r1) setR1(mode === "replace" ? data.r1 : [...r1, ...data.r1]);
-        if (data.r2) setR2(mode === "replace" ? data.r2 : [...r2, ...data.r2]);
-        if (data.r3) setR3(mode === "replace" ? data.r3 : [...r3, ...data.r3]);
+        if (data.r1) setR1(mode === "replace" ? renumberQuestions(data.r1) : renumberQuestions([...r1, ...data.r1]));
+        if (data.r2) setR2(mode === "replace" ? mergeRound2Categories([], data.r2) : mergeRound2Categories(r2, data.r2));
+        if (data.r3) setR3(mode === "replace" ? renumberQuestions(data.r3) : renumberQuestions([...r3, ...data.r3]));
         markDirty();
     }
 
@@ -291,9 +419,9 @@ export function QuestionsEditorView({ onBack, username }: Props) {
         fetchQuestions().then((raw) => {
             if (!raw) return;
             const d = raw as Partial<QuestionsData>;
-            if (d.round1?.length) setR1(d.round1);
-            if (d.round2?.length) setR2(d.round2);
-            if (d.round3?.length) setR3(d.round3);
+            if (Array.isArray(d.round1)) setR1(d.round1);
+            if (Array.isArray(d.round2)) setR2(d.round2);
+            if (Array.isArray(d.round3)) setR3(d.round3);
         });
     }, []);
 
@@ -335,6 +463,35 @@ export function QuestionsEditorView({ onBack, username }: Props) {
         const catName = round === 2 ? r2.find((c) => c.id === catId)?.name : undefined;
         await appendActivity({ timestamp: Date.now(), username, role: "Questions-Entry", action: `Saved Round ${round}${catName ? ` › ${catName}` : ""} (inline edit)`, detail: `${updatedList.length} questions`, device: getDeviceName(), ip: await getClientIP() } as ActivityEntry);
         setSaving(false); setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+    }
+
+    async function deleteAllQuestions() {
+        const totalQuestions = r1.length + r3.length + r2.reduce((sum, cat) => sum + (cat.questions?.length ?? 0), 0);
+        if (totalQuestions === 0) return;
+        if (!confirm("Delete all " + totalQuestions + " questions from Round 1, Round 2, and Round 3? Round 2 categories will also be deleted.")) return;
+
+        setSaving(true);
+        await saveQuestions({ round1: [], round2: [], round3: [] });
+        await appendActivity({
+            timestamp: Date.now(),
+            username,
+            role: "Questions-Entry",
+            action: "Deleted all questions",
+            detail: "Removed " + totalQuestions + " questions across rounds 1, 2, and 3",
+            device: getDeviceName(),
+            ip: await getClientIP(),
+        } as ActivityEntry);
+
+        setR1([]);
+        setR2([]);
+        setR3([]);
+        setR1Bulk("");
+        setR3Bulk("");
+        setR2BulkMap({});
+        setSaving(false);
+        setDirty(false);
+        setSaved(true);
         setTimeout(() => setSaved(false), 2000);
     }
 
@@ -398,6 +555,10 @@ export function QuestionsEditorView({ onBack, username }: Props) {
                     QUESTIONS EDITOR
                 </span>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <button className="btn" onClick={deleteAllQuestions} disabled={saving}
+                        style={{ background: "rgba(255,64,96,0.15)", color: "var(--red)", padding: "9px 16px", fontSize: 13, border: "1px solid var(--red)", fontWeight: 700 }}>
+                        Delete All
+                    </button>
                     <button className="btn" onClick={() => setUploadOpen(true)}
                         style={{ background: "var(--surface2)", color: "var(--text2)", padding: "9px 16px", fontSize: 13, border: "1px solid rgba(255,255,255,0.1)" }}>
                         ⬆ Upload
