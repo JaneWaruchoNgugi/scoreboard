@@ -1,0 +1,18 @@
+{
+  "name": "Bongo Quiz Scoreboard",
+  "short_name": "Bongo Quiz",
+  "description": "Live score and timer controls for Bongo Quiz.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#03070e",
+  "theme_color": "#03070e",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

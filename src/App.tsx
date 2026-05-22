@@ -8,8 +8,8 @@ import "./styles/globals.css";
 
 const PINS: Record<string, string> = {
     "admin": "2027",
-    "timer-control": "2025",
     "Questions-Entry": "2026",
+    "timer-control": "2025",
     "viewer": "1234",
 };
 

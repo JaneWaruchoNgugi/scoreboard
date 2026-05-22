@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Bongo Quiz scoreboard</title>
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07151d"/>
+      <stop offset="1" stop-color="#03070e"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#03070e"/>
+  <rect x="54" y="68" width="404" height="376" rx="64" fill="url(#panel)" stroke="#12303d" stroke-width="12"/>
+  <circle cx="143" cy="171" r="44" fill="#06d9ff" opacity=".22" filter="url(#glow)"/>
+  <circle cx="369" cy="171" r="44" fill="#ffbf12" opacity=".22" filter="url(#glow)"/>
+  <circle cx="143" cy="171" r="34" fill="#06d9ff"/>
+  <circle cx="369" cy="171" r="34" fill="#ffbf12"/>
+  <path d="M101 310h310" stroke="#0de4a7" stroke-linecap="round" stroke-width="30"/>
+  <path d="M101 359h310" stroke="#ff0b69" stroke-linecap="round" stroke-width="22"/>
+  <path d="M182 167h148" stroke="#edf7ff" stroke-linecap="round" stroke-width="22"/>
+  <path d="M212 235h88" stroke="#edf7ff" stroke-linecap="round" stroke-width="18" opacity=".72"/>
+  <path d="M115 141v60m-30-30h60M397 141v60m-30-30h60" stroke="#03121a" stroke-linecap="round" stroke-width="14"/>
+</svg>
