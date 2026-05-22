@@ -15,7 +15,7 @@ const ROLES = [
     },
     {
         role: "Questions-Entry",
-        icon: "⏱",
+        icon: "🗂️",
         label: "Questions Entry",
         desc: "Edit questions for all rounds",
         accent: "var(--green)",
@@ -31,7 +31,7 @@ const ROLES = [
     },
     {
         role: "admin",
-        icon: "⚡",
+        icon: "🛠️",
         label: "Jane",
         desc: "Control the board",
         accent: "var(--amber)",
