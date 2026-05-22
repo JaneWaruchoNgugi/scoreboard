@@ -487,7 +487,7 @@ function AdminTopBar({ onBack }: TopBarProps) {
     return (
         <div className="admin-topbar">
             <button className="btn admin-topbar__back" onClick={onBack}>← Back</button>
-            <div className="admin-topbar__title">OPERATOR Charles</div>
+            <div className="admin-topbar__title">OPERATOR Jane</div>
             <div className="admin-topbar__actions">
                 {/*<button*/}
                 {/*    onClick={onTestSound}*/}
