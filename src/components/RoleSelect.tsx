@@ -22,6 +22,14 @@ const ROLES = [
         dimAccent: "rgba(0,229,160,0.15)",
     },
     {
+        role: "timer-control",
+        icon: "⏱",
+        label: "Rania",
+        desc: "Control the round timer",
+        accent: "var(--green)",
+        dimAccent: "rgba(0,229,160,0.15)",
+    },
+    {
         role: "admin",
         icon: "⚡",
         label: "Jane",

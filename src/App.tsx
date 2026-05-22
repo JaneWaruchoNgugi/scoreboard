@@ -3,10 +3,12 @@ import { RoleSelect }           from "./components/RoleSelect";
 import { ViewerView }           from "./components/viewer/ViewerView";
 import { QuestionsEditorView }  from "./components/editor/QuestionsEditorView";
 import { AdminView }            from "./components/admin/AdminView";
+import { RaniaTimerView }       from "./components/timer/RaniaTimerView";
 import "./styles/globals.css";
 
 const PINS: Record<string, string> = {
     "admin": "2027",
+    "timer-control": "2027",
     "Questions-Entry": "2026",
     "viewer": "1234",
 };
@@ -181,6 +183,7 @@ function App() {
 
     if (role === "viewer")          return <><ViewerView          onBack={handleBack} /><ThemeToggle /></>;
     if (role === "Questions-Entry") return <><QuestionsEditorView onBack={handleBack} username={username} /><ThemeToggle /></>;
+    if (role === "timer-control")   return <><RaniaTimerView       onBack={handleBack} /><ThemeToggle /></>;
     if (role === "admin")           return <><AdminView           onBack={handleBack} username={username} /><ThemeToggle /></>;
 }
 

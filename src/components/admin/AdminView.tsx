@@ -2,9 +2,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import "../shared/GlobalStyles.css";
 import { ScoreboardDisplay } from "../shared/ScoreboardDisplay";
 import { ControlCard } from "../shared/ControlCard";
+import { AdminTimerView } from "./AdminTimerView";
 import { QuestionBankCard } from "./QuestionBankCard";
 import { useAudioControl } from "../../hooks/useAudioControl";
-import { saveState, fetchState, mergeCategories, appendScoreRecord, fetchScoreHistory, clearScoreHistory, saveScoreHistory, fetchActivityLog, clearActivityLog, subscribeToVoiceStats, saveVoiceStats } from "../../firebase";
+import { saveState, fetchState, mergeCategories, subscribeToState, appendScoreRecord, fetchScoreHistory, clearScoreHistory, saveScoreHistory, fetchActivityLog, clearActivityLog, subscribeToVoiceStats, saveVoiceStats } from "../../firebase";
 import type { ScoreRecord, ActivityEntry, VoiceStats } from "../../firebase";
 import { DEFAULT_STATE, DEFAULT_CATEGORIES } from "../../data/categories";
 import type { ScoreboardState, Category, TeamSide, QuestionEntry } from "../../types";
@@ -18,10 +19,6 @@ interface Props {
 
 // const QUICK_AMOUNTS = [50,100,150,250, 500, 600, 750,1000, 2000,2500];
 // const NEG_AMOUNTS = [-50,-100,-150,-250, -500,-600,-750,-1000,-2000,-2500];
-const R1_DURATIONS = [150];
-const R2_DURATIONS = [20,25,30,35,40];
-const R3_DURATIONS = [60];
-
 export function AdminView({ onBack, username: _username }: Props) {
     const [state, setState] = useState<ScoreboardState>(DEFAULT_STATE);
     const [scoreHistory, setScoreHistory] = useState<{ a: number; b: number } | null>(null); // undo
@@ -101,7 +98,7 @@ export function AdminView({ onBack, username: _username }: Props) {
                     const loaded: ScoreboardState = {
                         ...DEFAULT_STATE,
                         ...raw,
-                        timerDuration: roundDefaults[raw.timerRound ?? 1] ?? 150,
+                        timerDuration: raw.timerDuration ?? roundDefaults[raw.timerRound ?? 1] ?? 150,
                         categories: raw.categories
                             ? mergeCategories(raw.categories)
                             : DEFAULT_CATEGORIES,
@@ -122,6 +119,22 @@ export function AdminView({ onBack, username: _username }: Props) {
         load();
     }, []);
 
+    // Keep timer controls in sync with the Rania timer view without replacing local score edits.
+    useEffect(() => {
+        return subscribeToState((data) => {
+            if (!data) return;
+            setState((current) => ({
+                ...current,
+                timerDuration: data.timerDuration,
+                timerStartedAt: data.timerStartedAt,
+                timerRunning: data.timerRunning,
+                timerRound: data.timerRound,
+                timerElapsed: data.timerElapsed || 0,
+                lastUpdated: data.lastUpdated,
+            }));
+        });
+    }, []);
+
     // Preview timer countdown
     useEffect(() => {
         setIsMuted(!state.timerRunning);
@@ -138,8 +151,8 @@ export function AdminView({ onBack, username: _username }: Props) {
         }
 
         const tick = () => {
-            const e = (Date.now() - (state.timerStartedAt as number)) / 1000;
-            setPreviewRemaining(Math.max(0, state.timerDuration - e));
+            const elapsed = (Date.now() - state.timerStartedAt!) / 1000;
+            setPreviewRemaining(Math.max(0, state.timerDuration - elapsed));
         };
 
         tick();
@@ -227,27 +240,33 @@ export function AdminView({ onBack, username: _username }: Props) {
     };
 
     // Timer management
-    const handleSelectRound = (round: number) => {
+    const handleSelectRound = async (round: number) => {
         pauseAllSounds();
-        setState((p) => ({
-            ...p,
+        await pushState({
+            ...state,
             timerRound: round,
-            timerDuration: round === 1 ? 150 : (round === 2 ? 30 : 60),
+            timerDuration: round === 1 ? 150 : round === 2 ? 30 : 60,
             timerStartedAt: null,
             timerRunning: false,
             timerElapsed: 0,
             activeCategory: null,
             showAnswer: false,
-        }));
+            lastUpdated: Date.now(),
+        });
         setACorrect(defaultCorrect(round)); setAWrong(defaultPenalty(round)); setAPass(defaultPenalty(round));
         setBCorrect(defaultCorrect(round)); setBWrong(defaultPenalty(round)); setBPass(defaultPenalty(round));
-        setSaved(false);
     };
 
-    const handleSelectDuration = (d: number) => {
+    const handleSelectDuration = async (duration: number) => {
         pauseAllSounds();
-        setState((p) => ({ ...p, timerDuration: d, timerStartedAt: null, timerRunning: false }));
-        setSaved(false);
+        await pushState({
+            ...state,
+            timerDuration: duration,
+            timerStartedAt: null,
+            timerRunning: false,
+            timerElapsed: 0,
+            lastUpdated: Date.now(),
+        });
     };
 
     const handleTimerStart = async () => {
@@ -275,13 +294,13 @@ export function AdminView({ onBack, username: _username }: Props) {
     const handleTimerStop = async () => {
         pauseAllSounds();
         setIsMuted(true);
-
         const elapsed = state.timerStartedAt ? (Date.now() - state.timerStartedAt) / 1000 : 0;
+
         await pushState({
             ...state,
             timerRunning: false,
             timerElapsed: elapsed,
-            lastUpdated: Date.now()
+            lastUpdated: Date.now(),
         });
     };
 
@@ -364,25 +383,35 @@ export function AdminView({ onBack, username: _username }: Props) {
                 {activeTab === "preview" && (
                     <PreviewColumn state={state} />
                 )}
+                {activeTab === "timer" && (
+                    <AdminTimerView
+                        state={state}
+                        onSelectRound={handleSelectRound}
+                        onSelectDuration={handleSelectDuration}
+                        onTimerStart={handleTimerStart}
+                        onTimerStop={handleTimerStop}
+                        onTimerReset={handleTimerReset}
+                        previewRemaining={previewRemaining}
+                        timerIsEnd={timerIsEnd}
+                        countdownCls={countdownCls}
+                        onFocus={handleFocus}
+                    />
+                )}
                 {activeTab === "teams" && (
                 <div className="admin-right-col">
                     <div className="timer-categories-container">
-                            <TimerCard
-                                state={state}
-                                categories={state.categories || DEFAULT_CATEGORIES}
-                                onPushState={pushState}
-                                onSelectRound={handleSelectRound}
-                                onSelectDuration={handleSelectDuration}
-                                onTimerStart={handleTimerStart}
-                                onTimerStop={handleTimerStop}
-                                onTimerReset={handleTimerReset}
-                                previewRemaining={previewRemaining}
-                                timerIsEnd={timerIsEnd}
-                                countdownCls={countdownCls}
-                                onFocus={handleFocus}
-                                pendingQuestion={pendingQuestion}
-                                setPendingQuestion={setPendingQuestion}
-                            />
+                        <AdminTimerView
+                            state={state}
+                            onSelectRound={handleSelectRound}
+                            onSelectDuration={handleSelectDuration}
+                            onTimerStart={handleTimerStart}
+                            onTimerStop={handleTimerStop}
+                            onTimerReset={handleTimerReset}
+                            previewRemaining={previewRemaining}
+                            timerIsEnd={timerIsEnd}
+                            countdownCls={countdownCls}
+                            onFocus={handleFocus}
+                        />
                         <TeamsSubTabs
                             state={state}
                             drafts={drafts}
@@ -485,7 +514,8 @@ interface TabsProps {
 function AdminTabs({ activeTab, onTabChange }: TabsProps) {
     const tabs = [
         { id: "preview" as const, icon: "👥", label: "Preview Scores" },
-        { id: "teams" as const, icon: "⏱️", label: "TEAMS" },
+        { id: "timer" as const, icon: "⏱️", label: "TIMER" },
+        { id: "teams" as const, icon: "👥", label: "TEAMS" },
         { id: "history" as const, icon: "📊", label: "SCORE HISTORY" },
         { id: "activity" as const, icon: "📋", label: "ACTIVITY LOG" },
         { id: "voice" as const, icon: "🎙️", label: "VOICE TRACKER" },
@@ -516,335 +546,6 @@ function PreviewColumn({ state }: PreviewColumnProps) {
             <div className="preview-col__label">LIVE PREVIEW</div>
             <ScoreboardDisplay state={state} showScores={true}/>
             <div className="preview-col__hint">Click PUBLISH to push scores to all viewers instantly</div>
-        </div>
-    );
-}
-
-interface TimerCardProps {
-    state: ScoreboardState;
-    categories: Category[];
-    onPushState: (state: ScoreboardState) => Promise<void>;
-    onSelectRound: (round: number) => void;
-    onSelectDuration: (duration: number) => void;
-    onTimerStart: () => Promise<void>;
-    onTimerStop: () => Promise<void>;
-    onTimerReset: () => Promise<void>;
-    previewRemaining: number;
-    timerIsEnd: boolean;
-    countdownCls: string;
-    onFocus: (e: React.FocusEvent<HTMLInputElement | null>) => void;
-    pendingQuestion: {
-        categoryId: string;
-        question: string;
-        answer: string;
-    } | null;
-    setPendingQuestion: React.Dispatch<React.SetStateAction<{
-        categoryId: string;
-        question: string;
-        answer: string;
-    } | null>>;
-}
-
-function TimerCard({
-                       state,
-                       // categories,
-                       // onPushState,
-                       onSelectRound,
-                       onSelectDuration,
-                       onTimerStart,
-                       onTimerStop,
-                       onTimerReset,
-                       previewRemaining,
-                       timerIsEnd,
-                       countdownCls,
-                       onFocus,
-                       // pendingQuestion,
-                       // setPendingQuestion
-                   }: TimerCardProps) {
-    const previewSecs = Math.ceil(previewRemaining);
-    const formatTime = (seconds: number) => seconds <= 0 ? "0" : seconds.toString();
-
-    return (
-        <ControlCard accent="var(--green)" title="ROUND TIMER">
-            <div className="timer-card__content">
-                <RoundSelector
-                    currentRound={state.timerRound}
-                    onSelectRound={onSelectRound}
-                />
-
-                <DurationSelector
-                    round={state.timerRound}
-                    currentDuration={state.timerDuration}
-                    onSelectDuration={onSelectDuration}
-                    onFocus={onFocus}
-                    isRunning={state.timerRunning}
-                />
-
-                <TimerDisplay
-                    isRunning={state.timerRunning}
-                    hasStarted={state.timerStartedAt !== null}
-                    round={state.timerRound}
-                    duration={state.timerDuration}
-                    remaining={previewSecs}
-                    isEnd={timerIsEnd}
-                    countdownClass={countdownCls}
-                    pausedAt={state.timerStartedAt && !state.timerRunning ? previewSecs : null}
-                    formatTime={formatTime}
-                />
-                <TimerControls
-                    isRunning={state.timerRunning}
-                    hasStarted={state.timerStartedAt !== null}
-                    isEnd={timerIsEnd}
-                    onStart={onTimerStart}
-                    onStop={onTimerStop}
-                    onReset={onTimerReset}
-                />
-
-                {state.timerRound === 2 && (
-                    <RoundTwoPanel
-                        // state={state}
-                        // categories={categories}
-                        // onPushState={onPushState}
-                        // pendingQuestion={pendingQuestion}
-                        // setPendingQuestion={setPendingQuestion}
-                        // onTimerStop={onTimerStop}
-                    />
-                )}
-            </div>
-        </ControlCard>
-    );
-}
-
-interface RoundSelectorProps {
-    currentRound: number;
-    onSelectRound: (round: number) => void;
-}
-
-function RoundSelector({ currentRound, onSelectRound }: RoundSelectorProps) {
-    return (
-        <div>
-            <label className="field-label">SELECT ROUND</label>
-            <div className="round-selector">
-                {[1, 2,3].map((r) => (
-                    <button
-                        key={r}
-                        className={`btn round-btn ${currentRound === r ? "round-btn--active" : "round-btn--idle"}`}
-                        onClick={() => onSelectRound(r)}
-                    >
-                        ROUND {r}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-interface DurationSelectorProps {
-    round: number;
-    currentDuration: number;
-    onSelectDuration: (duration: number) => void;
-    onFocus: (e: React.FocusEvent<HTMLInputElement | null>) => void;
-    isRunning: boolean;
-}
-
-function DurationSelector({ round, currentDuration, onSelectDuration, onFocus, isRunning }: DurationSelectorProps) {
-    const durations = round === 1 ? R1_DURATIONS :( round===2 ? R2_DURATIONS: R3_DURATIONS);
-    const [draft, setDraft] = useState(currentDuration.toString());
-
-    // sync when a preset button changes the duration externally
-    useEffect(() => { setDraft(currentDuration.toString()); }, [currentDuration]);
-
-    return (
-        <>
-            <div>
-                <label className="field-label">DURATION — ROUND {round} OPTIONS</label>
-                <div className="duration-grid">
-                    {durations.map((d: number) => (
-                        <button
-                            key={d}
-                            className={`btn duration-btn ${currentDuration === d ? "duration-btn--active" : "duration-btn--idle"}`}
-                            onClick={() => onSelectDuration(d)}
-                        >
-                            {d}s
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div>
-                <label className="field-label">CUSTOM DURATION (SECONDS)</label>
-                <input
-                    type="number"
-                    className="duration-input"
-                    value={draft}
-                    onChange={(e) => {
-                        setDraft(e.target.value);
-                        const v = parseInt(e.target.value, 10);
-                        if (!isNaN(v) && v > 0) onSelectDuration(v);
-                    }}
-                    onFocus={onFocus}
-                    disabled={isRunning}
-                />
-            </div>
-        </>
-    );
-}
-
-interface TimerDisplayProps {
-    isRunning: boolean;
-    hasStarted: boolean;
-    round: number;
-    duration: number;
-    remaining: number;
-    isEnd: boolean;
-    countdownClass: string;
-    pausedAt: number | null;
-    formatTime: (seconds: number) => string;
-}
-
-function TimerDisplay({ isRunning, hasStarted, round, duration, remaining, isEnd, countdownClass, pausedAt, formatTime }: TimerDisplayProps) {
-    return (
-        <div className="timer-preview">
-            <div>
-                <div className="timer-preview__info" style={{ marginBottom: 4, letterSpacing: "0.15em" }}>
-                    {isRunning ? "RUNNING" : hasStarted ? "PAUSED" : "READY"}
-                </div>
-                <div className={countdownClass}>
-                    {isEnd ? "0" : formatTime(remaining)}
-                    <span className="timer-preview__unit">SEC</span>
-                </div>
-            </div>
-            <div className="timer-preview__meta">
-                <div className={`timer-preview__status ${isRunning && !isEnd ? "timer-preview__status--running" : "timer-preview__status--idle"}`}>
-                    {isEnd ? "⏹ FINISHED" : isRunning ? "▶ RUNNING" : hasStarted ? "⏸ PAUSED" : "⏸ READY"}
-                </div>
-                <div className="timer-preview__info">
-                    RND {round} · {duration}s
-                    {pausedAt !== null && (
-                        <span style={{ color: "var(--amber)", marginLeft: 8 }}>
-                            (Paused at {formatTime(pausedAt)}s)
-                        </span>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-interface TimerControlsProps {
-    isRunning: boolean;
-    hasStarted: boolean;
-    isEnd: boolean;
-    onStart: () => Promise<void>;
-    onStop: () => Promise<void>;
-    onReset: () => Promise<void>;
-}
-
-function TimerControls({ isRunning, hasStarted, isEnd, onStart, onStop, onReset }: TimerControlsProps) {
-    return (
-        <>
-            <div className="timer-controls">
-                {!isRunning && hasStarted ? (
-                    <button className="btn timer-btn timer-btn--start" onClick={onStart}>
-                        ▶ RESUME
-                    </button>
-                ) : (
-                    <button
-                        className={`btn timer-btn ${isRunning ? "timer-btn--stop" : "timer-btn--start"}`}
-                        onClick={isRunning ? onStop : onStart}
-                        disabled={isEnd}
-                    >
-                        {isRunning ? "⏸ PAUSE" : "▶ START"}
-                    </button>
-                )}
-
-                <button className="btn timer-btn timer-btn--reset" onClick={onReset}>
-                    ↺ RESET
-                </button>
-            </div>
-
-            <div className="timer-hint">
-                {isRunning
-                    ? "Timer running - PAUSE to stop"
-                    : hasStarted
-                        ? "Timer paused at current time - RESET to clear"
-                        : "START to begin countdown"}
-            </div>
-        </>
-    );
-}
-
-// interface RoundTwoPanelProps {
-//     state: ScoreboardState;
-//     categories: Category[];
-//     onPushState: (state: ScoreboardState) => Promise<void>;
-//     pendingQuestion: {
-//         categoryId: string;
-//         question: string;
-//         answer: string;
-//     } | null;
-//     setPendingQuestion: React.Dispatch<React.SetStateAction<{
-//         categoryId: string;
-//         question: string;
-//         answer: string;
-//     } | null>>;
-//     // onTimerStop: () => Promise<void>;
-// }
-
-function RoundTwoPanel(
-    // {
-                           // state,
-                           // categories,
-                           // onPushState,
-                           // pendingQuestion,
-                           // setPendingQuestion,
-                           // onTimerStop
-                       // }: RoundTwoPanelProps
-) {
-    return (
-        <div className="round-two-panel">
-            <div className="round-two-panel__divider" />
-            {/*<label className="field-label" style={{ color: "var(--green)" }}>ROUND 2 — CATEGORY BOARD</label>*/}
-
-            {/*<CategoryGrid*/}
-            {/*    categories={categories}*/}
-            {/*    activeCategory={state.activeCategory}*/}
-            {/*    onSelectCategory={async (catId: string) => {*/}
-            {/*        await onPushState({*/}
-            {/*            ...state,*/}
-            {/*            activeCategory: catId === state.activeCategory ? null : catId,*/}
-            {/*            showAnswer: false,*/}
-            {/*            lastUpdated: Date.now()*/}
-            {/*        });*/}
-            {/*    }}*/}
-            {/*/>*/}
-
-            {/*{state.activeCategory && (*/}
-            {/*    <ActiveCategoryPanel*/}
-            {/*        state={state}*/}
-            {/*        categories={categories}*/}
-            {/*        onPushState={onPushState}*/}
-            {/*        pendingQuestion={pendingQuestion}*/}
-            {/*        setPendingQuestion={setPendingQuestion}*/}
-            {/*        // onTimerStop={onTimerStop}*/}
-            {/*    />*/}
-            {/*)}*/}
-
-            {/*<button*/}
-            {/*    className="btn round-two-panel__reset"*/}
-            {/*    onClick={async () => {*/}
-            {/*        await onPushState({*/}
-            {/*            ...state,*/}
-            {/*            categories: DEFAULT_CATEGORIES,*/}
-            {/*            activeCategory: null,*/}
-            {/*            showAnswer: false,*/}
-            {/*            lastUpdated: Date.now()*/}
-            {/*        });*/}
-            {/*        setPendingQuestion(null);*/}
-            {/*    }}*/}
-            {/*>*/}
-            {/*    RESET ALL CATEGORIES*/}
-            {/*</button>*/}
         </div>
     );
 }
