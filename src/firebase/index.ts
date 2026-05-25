@@ -3,7 +3,7 @@ import type { FirebaseApp } from "firebase/app";
 import { getDatabase, ref, set, push, onValue, get } from "firebase/database";
 import type { Database } from "firebase/database";
 import type { ScoreboardState, Category } from "../types";
-import { DEFAULT_CATEGORIES } from "../data/categories";
+import { DEFAULT_CATEGORIES, DEFAULT_STATE } from "../data/categories";
 
 // ─── Config ────────────────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -21,17 +21,50 @@ const app: FirebaseApp = initializeApp(firebaseConfig);
 export const db: Database = getDatabase(app);
 export const SCORE_REF = "scoreboard/state";
 
+function isFiniteNumber(value: unknown): value is number {
+    return typeof value === "number" && Number.isFinite(value);
+}
+
+export function normalizeScoreboardState(state: Partial<ScoreboardState> | null | undefined): ScoreboardState {
+    const round = isFiniteNumber(state?.timerRound) ? state.timerRound : DEFAULT_STATE.timerRound;
+    const roundDefaults: Record<number, number> = { 1: 150, 2: 30, 3: 60 };
+
+    return {
+        ...DEFAULT_STATE,
+        ...state,
+        teamA: {
+            ...DEFAULT_STATE.teamA,
+            ...state?.teamA,
+        },
+        teamB: {
+            ...DEFAULT_STATE.teamB,
+            ...state?.teamB,
+        },
+        timerDuration: isFiniteNumber(state?.timerDuration)
+            ? state.timerDuration
+            : roundDefaults[round] ?? DEFAULT_STATE.timerDuration,
+        timerStartedAt: isFiniteNumber(state?.timerStartedAt) ? state.timerStartedAt : null,
+        timerRunning: typeof state?.timerRunning === "boolean" ? state.timerRunning : DEFAULT_STATE.timerRunning,
+        timerRound: round,
+        timerElapsed: isFiniteNumber(state?.timerElapsed) ? state.timerElapsed : DEFAULT_STATE.timerElapsed,
+        lastUpdated: isFiniteNumber(state?.lastUpdated) ? state.lastUpdated : null,
+        activeCategory: typeof state?.activeCategory === "string" ? state.activeCategory : null,
+        showAnswer: typeof state?.showAnswer === "boolean" ? state.showAnswer : DEFAULT_STATE.showAnswer,
+        categories: state?.categories ? mergeCategories(state.categories) : DEFAULT_CATEGORIES,
+    };
+}
+
 // ─── CRUD ──────────────────────────────────────────────────────────────────
 
 /** Overwrite the full state document in Firebase. */
 export async function saveState(state: ScoreboardState): Promise<void> {
-    await set(ref(db, SCORE_REF), state);
+    await set(ref(db, SCORE_REF), normalizeScoreboardState(state));
 }
 
 /** One-time fetch of current state (used on admin load). */
 export async function fetchState(): Promise<ScoreboardState | null> {
     const snap = await get(ref(db, SCORE_REF));
-    return snap.exists() ? (snap.val() as ScoreboardState) : null;
+    return snap.exists() ? normalizeScoreboardState(snap.val() as Partial<ScoreboardState>) : null;
 }
 
 /** Real-time listener — returns an unsubscribe function. */
@@ -39,7 +72,7 @@ export function subscribeToState(
     callback: (state: ScoreboardState | null) => void
 ): () => void {
     const unsubscribe = onValue(ref(db, SCORE_REF), (snap) => {
-        callback(snap.exists() ? (snap.val() as ScoreboardState) : null);
+        callback(snap.exists() ? normalizeScoreboardState(snap.val() as Partial<ScoreboardState>) : null);
     });
     return unsubscribe;
 }
