@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import type { FirebaseApp } from "firebase/app";
-import { getDatabase, ref, set, push, onValue, get, update } from "firebase/database";
+import { getDatabase, connectDatabaseEmulator, ref, set, push, onValue, get, update } from "firebase/database";
 import type { Database } from "firebase/database";
 import type { ScoreboardState, Category } from "../types";
 import { DEFAULT_CATEGORIES, DEFAULT_STATE } from "../data/categories";
@@ -17,8 +17,11 @@ const firebaseConfig = {
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-const app: FirebaseApp = initializeApp(firebaseConfig);
+export const app: FirebaseApp = initializeApp(firebaseConfig);
 export const db: Database = getDatabase(app);
+// Local testing only: `VITE_USE_EMULATORS=true npm run dev` with `firebase emulators:start`.
+export const USE_EMULATORS = import.meta.env.VITE_USE_EMULATORS === "true";
+if (USE_EMULATORS) connectDatabaseEmulator(db, "127.0.0.1", 9000);
 export const SCORE_REF = "scoreboard/state";
 
 // ─── Shared clock ──────────────────────────────────────────────────────────
