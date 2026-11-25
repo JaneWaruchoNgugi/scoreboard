@@ -51,6 +51,17 @@ export function AdminView({ onBack, username: _username }: Props) {
     const [bWrong,   setBWrong]   = useState(() => defaultPenalty(DEFAULT_STATE.timerRound));
     const [bPass,    setBPass]    = useState(() => defaultPenalty(DEFAULT_STATE.timerRound));
 
+    // Reset point values whenever the round changes, including when the
+    // round is picked from the timer-control screen or on first load.
+    const lastRoundRef = useRef(DEFAULT_STATE.timerRound);
+    useEffect(() => {
+        if (state.timerRound === lastRoundRef.current) return;
+        lastRoundRef.current = state.timerRound;
+        const r = state.timerRound;
+        setACorrect(defaultCorrect(r)); setAWrong(defaultPenalty(r)); setAPass(defaultPenalty(r));
+        setBCorrect(defaultCorrect(r)); setBWrong(defaultPenalty(r)); setBPass(defaultPenalty(r));
+    }, [state.timerRound]);
+
     const {  pauseAllSounds } = useAudioControl(isMuted);
     const teamANameRef = useRef<HTMLInputElement | null>(null);
     const teamAScoreRef = useRef<HTMLInputElement | null>(null);
@@ -130,6 +141,10 @@ export function AdminView({ onBack, username: _username }: Props) {
                 timerRunning: data.timerRunning,
                 timerRound: data.timerRound,
                 timerElapsed: data.timerElapsed || 0,
+                // Rania's round change also clears the active question/answer;
+                // pick that up so our next save doesn't bring them back.
+                activeCategory: data.activeCategory,
+                showAnswer: data.showAnswer,
                 lastUpdated: data.lastUpdated,
             }));
         });

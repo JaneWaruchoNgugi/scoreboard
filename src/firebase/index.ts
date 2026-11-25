@@ -177,7 +177,7 @@ export interface ActivityEntry {
     action: string;
     detail?: string;
     device?: string;
-    ip?: string;
+    ip?: string; // only on old entries; no longer collected
 }
 
 export function getDeviceName(): string {
@@ -193,16 +193,6 @@ export function getDeviceName(): string {
     if (/windows/i.test(ua)) return "PC · Windows";
     if (/linux/i.test(ua)) return "Linux";
     return "Unknown Device";
-}
-
-export async function getClientIP(): Promise<string> {
-    try {
-        const res = await fetch("https://api.ipify.org?format=json");
-        const data = await res.json();
-        return data.ip ?? "unknown";
-    } catch {
-        return "unknown";
-    }
 }
 
 export async function appendActivity(entry: ActivityEntry): Promise<void> {

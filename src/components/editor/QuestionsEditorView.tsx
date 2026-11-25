@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import mammoth from "mammoth";
 import "../shared/GlobalStyles.css";
-import { saveQuestions, fetchQuestions, appendActivity, getDeviceName, getClientIP } from "../../firebase";
+import { saveQuestions, fetchQuestions, appendActivity, getDeviceName } from "../../firebase";
 import type { ActivityEntry } from "../../firebase";
 import type { Question, Category, QuestionsData } from "../../hooks/useQuestions";
 import { ROUND_1_QUESTIONS, ROUND_2_CATEGORIES, ROUND_3_QUESTIONS } from "../../hooks/useQuestions";
@@ -446,7 +446,7 @@ export function QuestionsEditorView({ onBack, username }: Props) {
             if (r2BulkMap[cat.id]?.trim() || JSON.stringify(orig?.questions) !== JSON.stringify(cat.questions))
                 details.push(`Round 2 › ${cat.emoji} ${cat.name} (${cat.questions?.length ?? 0} questions)`);
         });
-        await appendActivity({ timestamp: Date.now(), username, role: "Questions-Entry", action: `Saved questions (Round ${tab})`, detail: details.join(" | ") || undefined, device: getDeviceName(), ip: await getClientIP() } as ActivityEntry);
+        await appendActivity({ timestamp: Date.now(), username, role: "Questions-Entry", action: `Saved questions (Round ${tab})`, detail: details.join(" | ") || undefined, device: getDeviceName() } as ActivityEntry);
 
         setR1(finalR1); setR3(finalR3); setR2(finalR2);
         setR1Bulk(""); setR3Bulk(""); setR2BulkMap({});
@@ -461,7 +461,7 @@ export function QuestionsEditorView({ onBack, username }: Props) {
         const finalR2 = round === 2 ? r2.map((c) => c.id === catId ? { ...c, questions: updatedList } : c) : r2;
         await saveQuestions({ round1: finalR1, round2: finalR2, round3: finalR3 });
         const catName = round === 2 ? r2.find((c) => c.id === catId)?.name : undefined;
-        await appendActivity({ timestamp: Date.now(), username, role: "Questions-Entry", action: `Saved Round ${round}${catName ? ` › ${catName}` : ""} (inline edit)`, detail: `${updatedList.length} questions`, device: getDeviceName(), ip: await getClientIP() } as ActivityEntry);
+        await appendActivity({ timestamp: Date.now(), username, role: "Questions-Entry", action: `Saved Round ${round}${catName ? ` › ${catName}` : ""} (inline edit)`, detail: `${updatedList.length} questions`, device: getDeviceName() } as ActivityEntry);
         setSaving(false); setSaved(true);
         setTimeout(() => setSaved(false), 2000);
     }
@@ -480,7 +480,6 @@ export function QuestionsEditorView({ onBack, username }: Props) {
             action: "Deleted all questions",
             detail: "Removed " + totalQuestions + " questions across rounds 1, 2, and 3",
             device: getDeviceName(),
-            ip: await getClientIP(),
         } as ActivityEntry);
 
         setR1([]);
@@ -500,7 +499,7 @@ export function QuestionsEditorView({ onBack, username }: Props) {
             timestamp: Date.now(), username, role: "Questions-Entry",
             action: `Deleted question — Round ${round}${catName ? ` › ${catName}` : ""}`,
             detail: questionText,
-            device: getDeviceName(), ip: await getClientIP(),
+            device: getDeviceName(),
         } as ActivityEntry);
     };
 
