@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import type { FirebaseApp } from "firebase/app";
-import { getDatabase, ref, set, push, onValue, get } from "firebase/database";
+import { getDatabase, connectDatabaseEmulator, ref, set, push, onValue, get, update } from "firebase/database";
 import type { Database } from "firebase/database";
 import type { ScoreboardState, Category } from "../types";
 import { DEFAULT_CATEGORIES, DEFAULT_STATE } from "../data/categories";
@@ -17,9 +17,28 @@ const firebaseConfig = {
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
-const app: FirebaseApp = initializeApp(firebaseConfig);
+export const app: FirebaseApp = initializeApp(firebaseConfig);
 export const db: Database = getDatabase(app);
+// Local testing only: `VITE_USE_EMULATORS=true npm run dev` with `firebase emulators:start`.
+export const USE_EMULATORS = import.meta.env.VITE_USE_EMULATORS === "true";
+if (USE_EMULATORS) connectDatabaseEmulator(db, "127.0.0.1", 9000);
 export const SCORE_REF = "scoreboard/state";
+
+// ─── Shared clock ──────────────────────────────────────────────────────────
+// Every device's own clock (Date.now) is set slightly differently — often by
+// one or more seconds. Timer timestamps are written by one device and read by
+// others, so all timer maths must use the Firebase server's clock instead.
+// Firebase reports how far this device's clock is from the server's.
+let serverTimeOffset = 0;
+onValue(ref(db, ".info/serverTimeOffset"), (snap) => {
+    const v = snap.val();
+    serverTimeOffset = typeof v === "number" && Number.isFinite(v) ? v : 0;
+});
+
+/** Current time in ms on the Firebase server's clock (same on every device). */
+export function serverNow(): number {
+    return Date.now() + serverTimeOffset;
+}
 
 function isFiniteNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value);
@@ -59,6 +78,31 @@ export function normalizeScoreboardState(state: Partial<ScoreboardState> | null 
 /** Overwrite the full state document in Firebase. */
 export async function saveState(state: ScoreboardState): Promise<void> {
     await set(ref(db, SCORE_REF), normalizeScoreboardState(state));
+}
+
+/** Fields that belong to the round timer. */
+export type TimerFields = Pick<
+    ScoreboardState,
+    "timerDuration" | "timerStartedAt" | "timerRunning" | "timerRound" | "timerElapsed" | "lastUpdated"
+> & Partial<Pick<ScoreboardState, "activeCategory" | "showAnswer">>;
+
+/**
+ * Write only the timer fields. Two devices (admin and timer control) both
+ * write to the same document, so overwriting the whole document from one of
+ * them can undo what the other just did (e.g. a score save reverting a
+ * timer start). Writing only the fields that changed avoids that.
+ */
+export async function saveTimerState(fields: TimerFields): Promise<void> {
+    await update(ref(db, SCORE_REF), fields);
+}
+
+/** Write only the team names and scores (see saveTimerState for why). */
+export async function saveTeams(state: Pick<ScoreboardState, "teamA" | "teamB">): Promise<void> {
+    await update(ref(db, SCORE_REF), {
+        teamA: state.teamA,
+        teamB: state.teamB,
+        lastUpdated: Date.now(),
+    });
 }
 
 /** One-time fetch of current state (used on admin load). */
@@ -136,7 +180,7 @@ export interface ActivityEntry {
     action: string;
     detail?: string;
     device?: string;
-    ip?: string;
+    ip?: string; // only on old entries; no longer collected
 }
 
 export function getDeviceName(): string {
@@ -152,16 +196,6 @@ export function getDeviceName(): string {
     if (/windows/i.test(ua)) return "PC · Windows";
     if (/linux/i.test(ua)) return "Linux";
     return "Unknown Device";
-}
-
-export async function getClientIP(): Promise<string> {
-    try {
-        const res = await fetch("https://api.ipify.org?format=json");
-        const data = await res.json();
-        return data.ip ?? "unknown";
-    } catch {
-        return "unknown";
-    }
 }
 
 export async function appendActivity(entry: ActivityEntry): Promise<void> {

@@ -3,7 +3,7 @@ import { AdminTimerView } from "../admin/AdminTimerView";
 import "../shared/GlobalStyles.css";
 import "../../styles/admin.css";
 import { DEFAULT_CATEGORIES, DEFAULT_STATE } from "../../data/categories";
-import { mergeCategories, saveState, subscribeToState } from "../../firebase";
+import { mergeCategories, saveTimerState, subscribeToState, serverNow } from "../../firebase";
 import { useAudioControl } from "../../hooks/useAudioControl";
 import type { ScoreboardState } from "../../types";
 
@@ -47,7 +47,7 @@ export function RaniaTimerView({ onBack }: Props) {
         }
 
         const tick = () => {
-            const elapsed = (Date.now() - state.timerStartedAt!) / 1000;
+            const elapsed = (serverNow() - state.timerStartedAt!) / 1000;
             setPreviewRemaining(Math.max(0, state.timerDuration - elapsed));
         };
 
@@ -60,7 +60,17 @@ export function RaniaTimerView({ onBack }: Props) {
         setState(next);
         setError(null);
         try {
-            await saveState(next);
+            // Only write timer fields so this never overwrites the admin's scores.
+            await saveTimerState({
+                timerDuration: next.timerDuration,
+                timerStartedAt: next.timerStartedAt,
+                timerRunning: next.timerRunning,
+                timerRound: next.timerRound,
+                timerElapsed: next.timerElapsed,
+                lastUpdated: next.lastUpdated,
+                activeCategory: next.activeCategory,
+                showAnswer: next.showAnswer,
+            });
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to save timer state");
         }
@@ -99,14 +109,14 @@ export function RaniaTimerView({ onBack }: Props) {
             state.timerStartedAt && !state.timerRunning
                 ? {
                     ...state,
-                    timerStartedAt: Date.now() - (state.timerElapsed || 0) * 1000,
+                    timerStartedAt: serverNow() - (state.timerElapsed || 0) * 1000,
                     timerRunning: true,
                     timerElapsed: 0,
                     lastUpdated: Date.now(),
                 }
                 : {
                     ...state,
-                    timerStartedAt: Date.now(),
+                    timerStartedAt: serverNow(),
                     timerRunning: true,
                     timerElapsed: 0,
                     lastUpdated: Date.now(),
@@ -117,7 +127,9 @@ export function RaniaTimerView({ onBack }: Props) {
     const handleTimerStop = async () => {
         pauseAllSounds();
         setIsMuted(true);
-        const elapsed = state.timerStartedAt ? (Date.now() - state.timerStartedAt) / 1000 : 0;
+        // Already paused: keep the stored elapsed time instead of recomputing it.
+        if (!state.timerRunning) return;
+        const elapsed = state.timerStartedAt ? (serverNow() - state.timerStartedAt) / 1000 : 0;
 
         await pushState({
             ...state,

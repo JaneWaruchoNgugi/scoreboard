@@ -1,3 +1,34 @@
+# Bongo Quiz scoreboard
+
+## Login and super admin setup
+
+Everyone logs in with their name and one shared PIN when the page loads.
+The PIN is stored in Firebase, never in the website code, and only the
+super admin page (`/super-admin`) can change it. Changing the PIN logs every
+device out. Each login is saved with the person's name and device.
+
+One-time setup in the [Firebase console](https://console.firebase.google.com):
+
+1. **Authentication → Sign-in method:** enable **Anonymous** and **Email/Password**.
+2. **Authentication → Users → Add user:** create the super admin's email and
+   password. Copy the new user's **User UID**.
+3. **Realtime Database → Data:** add the key `auth/superAdmins/<that UID>`
+   with the value `true` (a boolean, not text).
+4. **Realtime Database → Rules:** replace the rules with the contents of
+   [`database.rules.json`](database.rules.json) and click **Publish**.
+   From this moment nobody can use the scoreboard until a PIN is set.
+5. Open `https://<your-site>/super-admin`, sign in, and set the PIN
+   (6 or more digits recommended).
+
+### Local testing with emulators
+
+```bash
+firebase emulators:start --only database,auth   # uses database.rules.json
+VITE_USE_EMULATORS=true npm run dev
+```
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
