@@ -3,7 +3,7 @@ import { AdminTimerView } from "../admin/AdminTimerView";
 import "../shared/GlobalStyles.css";
 import "../../styles/admin.css";
 import { DEFAULT_CATEGORIES, DEFAULT_STATE } from "../../data/categories";
-import { mergeCategories, saveState, subscribeToState, serverNow } from "../../firebase";
+import { mergeCategories, saveTimerState, subscribeToState, serverNow } from "../../firebase";
 import { useAudioControl } from "../../hooks/useAudioControl";
 import type { ScoreboardState } from "../../types";
 
@@ -60,7 +60,17 @@ export function RaniaTimerView({ onBack }: Props) {
         setState(next);
         setError(null);
         try {
-            await saveState(next);
+            // Only write timer fields so this never overwrites the admin's scores.
+            await saveTimerState({
+                timerDuration: next.timerDuration,
+                timerStartedAt: next.timerStartedAt,
+                timerRunning: next.timerRunning,
+                timerRound: next.timerRound,
+                timerElapsed: next.timerElapsed,
+                lastUpdated: next.lastUpdated,
+                activeCategory: next.activeCategory,
+                showAnswer: next.showAnswer,
+            });
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to save timer state");
         }

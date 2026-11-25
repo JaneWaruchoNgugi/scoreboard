@@ -5,7 +5,7 @@ import { ControlCard } from "../shared/ControlCard";
 import { AdminTimerView } from "./AdminTimerView";
 import { QuestionBankCard } from "./QuestionBankCard";
 import { useAudioControl } from "../../hooks/useAudioControl";
-import { saveState, fetchState, mergeCategories, subscribeToState, serverNow, appendScoreRecord, fetchScoreHistory, clearScoreHistory, saveScoreHistory, fetchActivityLog, clearActivityLog, subscribeToVoiceStats, saveVoiceStats } from "../../firebase";
+import { saveState, saveTimerState, saveTeams, fetchState, mergeCategories, subscribeToState, serverNow, appendScoreRecord, fetchScoreHistory, clearScoreHistory, saveScoreHistory, fetchActivityLog, clearActivityLog, subscribeToVoiceStats, saveVoiceStats } from "../../firebase";
 import type { ScoreRecord, ActivityEntry, VoiceStats } from "../../firebase";
 import { DEFAULT_STATE, DEFAULT_CATEGORIES } from "../../data/categories";
 import type { ScoreboardState, Category, TeamSide, QuestionEntry } from "../../types";
@@ -182,7 +182,9 @@ export function AdminView({ onBack, username: _username }: Props) {
         if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         saveTimerRef.current = setTimeout(async () => {
             try {
-                await saveState(next);
+                // Only write teams: this save fires 600 ms later, and a full
+                // write would undo a timer start/stop made in the meantime.
+                await saveTeams(next);
                 setSaved(true);
                 setTimeout(() => setSaved(false), 2000);
             } catch (err) {
@@ -239,6 +241,27 @@ export function AdminView({ onBack, username: _username }: Props) {
         setScoreHistory(null);
     };
 
+    // Write only timer fields so a timer action never overwrites scores
+    // being changed at the same moment.
+    const pushTimer = async (next: ScoreboardState) => {
+        setState(next);
+        setSaved(false);
+        try {
+            await saveTimerState({
+                timerDuration: next.timerDuration,
+                timerStartedAt: next.timerStartedAt,
+                timerRunning: next.timerRunning,
+                timerRound: next.timerRound,
+                timerElapsed: next.timerElapsed,
+                lastUpdated: next.lastUpdated,
+            });
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "Failed to save");
+        }
+    };
+
     // Timer management
     const handleSelectRound = async (round: number) => {
         pauseAllSounds();
@@ -259,7 +282,7 @@ export function AdminView({ onBack, username: _username }: Props) {
 
     const handleSelectDuration = async (duration: number) => {
         pauseAllSounds();
-        await pushState({
+        await pushTimer({
             ...state,
             timerDuration: duration,
             timerStartedAt: null,
@@ -288,7 +311,7 @@ export function AdminView({ onBack, username: _username }: Props) {
                 lastUpdated: Date.now()
             };
 
-        await pushState(ns);
+        await pushTimer(ns);
     };
 
     const handleTimerStop = async () => {
@@ -298,7 +321,7 @@ export function AdminView({ onBack, username: _username }: Props) {
         if (!state.timerRunning) return;
         const elapsed = state.timerStartedAt ? (serverNow() - state.timerStartedAt) / 1000 : 0;
 
-        await pushState({
+        await pushTimer({
             ...state,
             timerRunning: false,
             timerElapsed: elapsed,
@@ -310,7 +333,7 @@ export function AdminView({ onBack, username: _username }: Props) {
         if (!confirm("Reset the timer?")) return;
         pauseAllSounds();
         setIsMuted(true);
-        await pushState({
+        await pushTimer({
             ...state,
             timerStartedAt: null,
             timerRunning: false,

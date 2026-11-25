@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import type { FirebaseApp } from "firebase/app";
-import { getDatabase, ref, set, push, onValue, get } from "firebase/database";
+import { getDatabase, ref, set, push, onValue, get, update } from "firebase/database";
 import type { Database } from "firebase/database";
 import type { ScoreboardState, Category } from "../types";
 import { DEFAULT_CATEGORIES, DEFAULT_STATE } from "../data/categories";
@@ -75,6 +75,31 @@ export function normalizeScoreboardState(state: Partial<ScoreboardState> | null 
 /** Overwrite the full state document in Firebase. */
 export async function saveState(state: ScoreboardState): Promise<void> {
     await set(ref(db, SCORE_REF), normalizeScoreboardState(state));
+}
+
+/** Fields that belong to the round timer. */
+export type TimerFields = Pick<
+    ScoreboardState,
+    "timerDuration" | "timerStartedAt" | "timerRunning" | "timerRound" | "timerElapsed" | "lastUpdated"
+> & Partial<Pick<ScoreboardState, "activeCategory" | "showAnswer">>;
+
+/**
+ * Write only the timer fields. Two devices (admin and timer control) both
+ * write to the same document, so overwriting the whole document from one of
+ * them can undo what the other just did (e.g. a score save reverting a
+ * timer start). Writing only the fields that changed avoids that.
+ */
+export async function saveTimerState(fields: TimerFields): Promise<void> {
+    await update(ref(db, SCORE_REF), fields);
+}
+
+/** Write only the team names and scores (see saveTimerState for why). */
+export async function saveTeams(state: Pick<ScoreboardState, "teamA" | "teamB">): Promise<void> {
+    await update(ref(db, SCORE_REF), {
+        teamA: state.teamA,
+        teamB: state.teamB,
+        lastUpdated: Date.now(),
+    });
 }
 
 /** One-time fetch of current state (used on admin load). */
