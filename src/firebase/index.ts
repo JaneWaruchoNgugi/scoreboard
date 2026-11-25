@@ -21,6 +21,22 @@ const app: FirebaseApp = initializeApp(firebaseConfig);
 export const db: Database = getDatabase(app);
 export const SCORE_REF = "scoreboard/state";
 
+// ─── Shared clock ──────────────────────────────────────────────────────────
+// Every device's own clock (Date.now) is set slightly differently — often by
+// one or more seconds. Timer timestamps are written by one device and read by
+// others, so all timer maths must use the Firebase server's clock instead.
+// Firebase reports how far this device's clock is from the server's.
+let serverTimeOffset = 0;
+onValue(ref(db, ".info/serverTimeOffset"), (snap) => {
+    const v = snap.val();
+    serverTimeOffset = typeof v === "number" && Number.isFinite(v) ? v : 0;
+});
+
+/** Current time in ms on the Firebase server's clock (same on every device). */
+export function serverNow(): number {
+    return Date.now() + serverTimeOffset;
+}
+
 function isFiniteNumber(value: unknown): value is number {
     return typeof value === "number" && Number.isFinite(value);
 }

@@ -5,7 +5,7 @@ import { ControlCard } from "../shared/ControlCard";
 import { AdminTimerView } from "./AdminTimerView";
 import { QuestionBankCard } from "./QuestionBankCard";
 import { useAudioControl } from "../../hooks/useAudioControl";
-import { saveState, fetchState, mergeCategories, subscribeToState, appendScoreRecord, fetchScoreHistory, clearScoreHistory, saveScoreHistory, fetchActivityLog, clearActivityLog, subscribeToVoiceStats, saveVoiceStats } from "../../firebase";
+import { saveState, fetchState, mergeCategories, subscribeToState, serverNow, appendScoreRecord, fetchScoreHistory, clearScoreHistory, saveScoreHistory, fetchActivityLog, clearActivityLog, subscribeToVoiceStats, saveVoiceStats } from "../../firebase";
 import type { ScoreRecord, ActivityEntry, VoiceStats } from "../../firebase";
 import { DEFAULT_STATE, DEFAULT_CATEGORIES } from "../../data/categories";
 import type { ScoreboardState, Category, TeamSide, QuestionEntry } from "../../types";
@@ -151,7 +151,7 @@ export function AdminView({ onBack, username: _username }: Props) {
         }
 
         const tick = () => {
-            const elapsed = (Date.now() - state.timerStartedAt!) / 1000;
+            const elapsed = (serverNow() - state.timerStartedAt!) / 1000;
             setPreviewRemaining(Math.max(0, state.timerDuration - elapsed));
         };
 
@@ -275,14 +275,14 @@ export function AdminView({ onBack, username: _username }: Props) {
         const ns: ScoreboardState = state.timerStartedAt && !state.timerRunning
             ? { // Resuming from pause
                 ...state,
-                timerStartedAt: Date.now() - (state.timerElapsed || 0) * 1000,
+                timerStartedAt: serverNow() - (state.timerElapsed || 0) * 1000,
                 timerRunning: true,
                 timerElapsed: 0,
                 lastUpdated: Date.now()
             }
             : { // Fresh start
                 ...state,
-                timerStartedAt: Date.now(),
+                timerStartedAt: serverNow(),
                 timerRunning: true,
                 timerElapsed: 0,
                 lastUpdated: Date.now()
@@ -294,7 +294,9 @@ export function AdminView({ onBack, username: _username }: Props) {
     const handleTimerStop = async () => {
         pauseAllSounds();
         setIsMuted(true);
-        const elapsed = state.timerStartedAt ? (Date.now() - state.timerStartedAt) / 1000 : 0;
+        // Already paused: keep the stored elapsed time instead of recomputing it.
+        if (!state.timerRunning) return;
+        const elapsed = state.timerStartedAt ? (serverNow() - state.timerStartedAt) / 1000 : 0;
 
         await pushState({
             ...state,
@@ -647,7 +649,7 @@ function ActiveCategoryPanel({
         setPendingQuestion(null);
 
         const elapsed = state.timerStartedAt
-            ? (Date.now() - state.timerStartedAt) / 1000
+            ? (serverNow() - state.timerStartedAt) / 1000
             : state.timerElapsed || 0;
 
         await onPushState({
